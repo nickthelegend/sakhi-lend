@@ -18,9 +18,10 @@ export function Navbar() {
 
   const navLinks = [
     { href: "/", label: "Home", icon: Home },
-    { href: "#about", label: "About" },
-    { href: "#contact", label: "Contact" },
+    { href: "/#about", label: "About" },
+    { href: "/#contact", label: "Contact" },
   ]
+
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl">
@@ -44,17 +45,18 @@ export function Navbar() {
             Home
           </Link>
           <Link
-            href="#about"
+            href="/#about"
             className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
           >
             About
           </Link>
           <Link
-            href="#contact"
+            href="/#contact"
             className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
           >
             Contact
           </Link>
+
         </nav>
 
         {/* Desktop CTA Buttons */}
@@ -93,19 +95,20 @@ export function Navbar() {
               Home
             </Link>
             <Link
-              href="#about"
+              href="/#about"
               onClick={() => setMobileMenuOpen(false)}
               className="rounded-lg px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
             >
               About
             </Link>
             <Link
-              href="#contact"
+              href="/#contact"
               onClick={() => setMobileMenuOpen(false)}
               className="rounded-lg px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
             >
               Contact
             </Link>
+
             <div className="mt-4 flex flex-col gap-3">
               <Button asChild className="w-full rounded-full">
                 <Link href="/app" onClick={() => setMobileMenuOpen(false)}>Launch App</Link>
