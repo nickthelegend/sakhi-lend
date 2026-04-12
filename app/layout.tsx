@@ -32,6 +32,9 @@ export const metadata: Metadata = {
   },
 }
 
+import { Toaster } from 'sonner'
+import { WalletProviderWrapper } from '@/components/providers/algorand-provider'
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -40,9 +43,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${poppins.variable} font-sans antialiased`}>
-        {children}
+        <WalletProviderWrapper>
+          {children}
+          <Toaster position="top-center" richColors />
+        </WalletProviderWrapper>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
   )
 }
+
+

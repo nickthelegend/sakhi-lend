@@ -59,11 +59,8 @@ export function Navbar() {
 
         {/* Desktop CTA Buttons */}
         <div className="hidden items-center gap-3 md:flex">
-          <Button asChild variant="outline" size="sm" className="rounded-full">
-            <Link href="/beneficiary/login">Beneficiary Login</Link>
-          </Button>
-          <Button asChild size="sm" className="rounded-full">
-            <Link href="/lender/login">Become a Lender</Link>
+          <Button asChild size="sm" className="rounded-full px-6">
+            <Link href="/app">Launch App</Link>
           </Button>
         </div>
 
@@ -110,11 +107,8 @@ export function Navbar() {
               Contact
             </Link>
             <div className="mt-4 flex flex-col gap-3">
-              <Button asChild variant="outline" className="w-full rounded-full">
-                <Link href="/beneficiary/login">Beneficiary Login</Link>
-              </Button>
               <Button asChild className="w-full rounded-full">
-                <Link href="/lender/login">Become a Lender</Link>
+                <Link href="/app" onClick={() => setMobileMenuOpen(false)}>Launch App</Link>
               </Button>
             </div>
           </nav>
