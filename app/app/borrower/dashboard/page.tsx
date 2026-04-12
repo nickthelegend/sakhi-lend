@@ -14,6 +14,7 @@ import {
   Clock,
   CheckCircle2,
 } from "lucide-react"
+import { WalletGuard } from "@/components/wallet-guard"
 
 export default function BeneficiaryDashboard() {
   return (
@@ -22,7 +23,9 @@ export default function BeneficiaryDashboard() {
 
       {/* Main Content */}
       <main className="flex-1">
-        <header className="border-b border-border bg-card px-6 py-4">
+        <WalletGuard>
+          <header className="border-b border-border bg-card px-6 py-4">
+
           <div className="flex items-center justify-between">
             <div className="ml-12 lg:ml-0">
               <h1 className="text-2xl font-bold text-foreground">Welcome, Priya!</h1>
@@ -181,7 +184,9 @@ export default function BeneficiaryDashboard() {
             </CardContent>
           </Card>
         </div>
+        </WalletGuard>
       </main>
     </div>
   )
 }
+

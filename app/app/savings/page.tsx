@@ -16,8 +16,12 @@ import {
   CircleDollarSign
 } from "lucide-react"
 import { Navbar } from "@/components/navbar"
+import { WalletGuard } from "@/components/wallet-guard"
 import { useWallet } from "@txnlab/use-wallet-react"
+
+import { WalletButton } from "@txnlab/use-wallet-ui-react"
 import { YieldVaultClient } from "@/contracts/YieldVaultClient"
+
 import algosdk from "algosdk"
 import { toast } from "sonner" // Assuming toast is available or I'll just use alerts
 
@@ -171,7 +175,10 @@ export default function DigiSavingsPage() {
       <Navbar />
       
       <main className="flex-1 container mx-auto px-4 py-12 max-w-4xl">
-        <div className="flex flex-col items-center text-center mb-12">
+        <WalletGuard>
+          <div className="flex flex-col items-center text-center mb-12 animate-in slide-in-from-top duration-700">
+
+
           <div className="bg-green-500/10 p-3 rounded-2xl mb-4">
             <PiggyBank className="w-10 h-10 text-green-500" />
           </div>
@@ -322,7 +329,10 @@ export default function DigiSavingsPage() {
             ))}
           </div>
         </section>
+        </WalletGuard>
       </main>
     </div>
   )
 }
+
+

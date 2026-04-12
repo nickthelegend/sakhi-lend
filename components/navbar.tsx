@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Home, Menu, X } from "lucide-react"
 import { useState } from "react"
+import { WalletButton } from "@txnlab/use-wallet-ui-react"
+
 
 export function Navbar() {
   const pathname = usePathname()
@@ -61,10 +63,14 @@ export function Navbar() {
 
         {/* Desktop CTA Buttons */}
         <div className="hidden items-center gap-3 md:flex">
+          <div className="wui-custom-trigger">
+            <WalletButton />
+          </div>
           <Button asChild size="sm" className="rounded-full px-6">
             <Link href="/app">Launch App</Link>
           </Button>
         </div>
+
 
         {/* Mobile Menu Button */}
         <button
@@ -110,10 +116,14 @@ export function Navbar() {
             </Link>
 
             <div className="mt-4 flex flex-col gap-3">
+              <div className="wui-custom-trigger">
+                <WalletButton />
+              </div>
               <Button asChild className="w-full rounded-full">
                 <Link href="/app" onClick={() => setMobileMenuOpen(false)}>Launch App</Link>
               </Button>
             </div>
+
           </nav>
         </div>
       )}
