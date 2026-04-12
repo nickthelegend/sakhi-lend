@@ -17,20 +17,10 @@ export function HeroSection() {
               A community-powered lending and savings platform designed to empower women with accessible credit and meaningful returns.
             </p>
             <div className="flex flex-wrap items-center gap-4 pt-4">
-              <Button asChild size="lg" className="rounded-full px-8">
-                <Link href="/beneficiary/login">Login as Beneficiary</Link>
-              </Button>
-              <Button asChild variant="outline" size="lg" className="rounded-full px-8">
-                <Link href="/admin/login">Admin Login</Link>
+              <Button asChild size="lg" className="rounded-full px-12 text-lg">
+                <Link href="/app">Launch App</Link>
               </Button>
             </div>
-            <Link
-              href="/lender/login"
-              className="group flex w-fit items-center gap-2 text-primary transition-colors hover:text-primary/80"
-            >
-              <span className="font-medium">Become a Lender</span>
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </Link>
           </div>
           <div className="relative">
             <div className="relative aspect-[4/3] overflow-hidden rounded-3xl shadow-2xl">

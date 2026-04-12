@@ -18,51 +18,42 @@ import {
 import { Navbar } from "@/components/navbar"
 import { WalletGuard } from "@/components/wallet-guard"
 import { useWallet } from "@txnlab/use-wallet-react"
-
-import { WalletButton } from "@txnlab/use-wallet-ui-react"
-import { YieldVaultClient } from "@/contracts/YieldVaultClient"
-
+import { useAlgorandSigner } from "@/hooks/use-algorand-signer"
+import { getYieldVaultClient, getContractIds, getAlgorandClient } from "@/lib/algorand/client"
 import algosdk from "algosdk"
 import { toast } from "sonner" // Assuming toast is available or I'll just use alerts
 
 export default function DigiSavingsPage() {
+  const { activeAddress } = useAlgorandSigner()
+  const { transactionSigner } = useWallet()
   const [inrAmount, setInrAmount] = useState<number>(500)
   const [isDeposited, setIsDeposited] = useState(false)
   const [accumulatedYield, setAccumulatedYield] = useState<number>(0)
-  const [currentBlock, setCurrentBlock] = useState<number>(10245678)
-  const { activeAddress, transactionSigner, algorand } = useWallet()
-  const [appId, setAppId] = useState<number>(1003) // Deployed ID 1003
-  const [assetId, setAssetId] = useState<number>(1001) // Deployed Asset 1001
+  const [currentBlock, setCurrentBlock] = useState<number>(0)
   const [realBalance, setRealBalance] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(false)
 
+  const { yieldVaultAppId, usdcAssetId } = getContractIds()
 
   const INR_USDC_RATE = 84.50
   const usdcAmount = (inrAmount / INR_USDC_RATE).toFixed(2)
   const simulatedAPY = 0.06 // 6%
 
-  // Algorand Client Instance
-  const getAppClient = () => {
-    if (!activeAddress) return null
-    return new YieldVaultClient(
-      {
-        resolveBy: "id",
-        id: appId,
-      },
-      algorand.algod
-    )
-  }
-
   // Sync real balance from contract
   useEffect(() => {
-    if (!activeAddress || !appId) return
+    if (!activeAddress) return
 
     const syncBalance = async () => {
       try {
-        const client = getAppClient()
-        if (!client) return
-        const balance = await client.getBalance({ user: activeAddress })
-        setRealBalance(Number(balance.return) / 1_000_000)
+        const algorandClient = getAlgorandClient()
+        const status = await algorandClient.client.algod.status().do()
+        setCurrentBlock(status['last-round'])
+
+        const client = getYieldVaultClient(activeAddress)
+        const balance = await client.getBalance({ args: { user: activeAddress } })
+        const val = Number(balance.return) / 1_000_000
+        setRealBalance(val)
+        if (val > 0) setIsDeposited(true)
       } catch (e) {
         console.error("Failed to sync balance:", e)
       }
@@ -97,29 +88,40 @@ export default function DigiSavingsPage() {
 
     setIsLoading(true)
     try {
-      const client = getAppClient()
-      if (!client) return
-
-      // In a real app, we would:
-      // 1. Opt-in to USDC if needed
-      // 2. Transact
-      
+      const client = getYieldVaultClient(activeAddress)
       const amountMicro = BigInt(Math.floor(parseFloat(usdcAmount) * 1_000_000))
+      const appAddress = algosdk.getApplicationAddress(BigInt(yieldVaultAppId))
       
-      // Atomic group: Transfer + Deposit call
-      await client.deposit({
-        axfer: {
-          assetId: BigInt(assetId),
-          amount: amountMicro,
-          sender: activeAddress,
-          receiver: algosdk.getApplicationAddress(BigInt(appId)),
-        }
-      }, {
-        sender: {
-          addr: activeAddress,
-          signer: transactionSigner,
-        }
-      })
+      const axfer = {
+        assetId: BigInt(usdcAssetId),
+        amount: amountMicro,
+        sender: activeAddress,
+        receiver: appAddress,
+      }
+
+      if (realBalance === 0 && !isDeposited) {
+        // First time: MBR payment required
+        const BOX_MBR = 128_500
+        const totalMBR = BOX_MBR * 2 + 100_000 // boxes + asset opt-in MBR
+        
+        await client.send.depositFirst({
+          args: {
+            axfer,
+            mbrPayment: {
+              sender: activeAddress,
+              receiver: appAddress,
+              amount: algokit.microAlgos(totalMBR),
+            }
+          },
+          extraFee: algokit.microAlgos(1000)
+        })
+      } else {
+        // Recurring
+        await client.send.depositMore({
+          args: { axfer },
+          extraFee: algokit.microAlgos(1000)
+        })
+      }
 
       setIsDeposited(true)
       toast.success("Deposit successful! Your savings are now earning yield.")
@@ -135,16 +137,13 @@ export default function DigiSavingsPage() {
     if (!activeAddress) return
     setIsLoading(true)
     try {
-      const client = getAppClient()
-      if (!client) return
+      const client = getYieldVaultClient(activeAddress)
 
-      await client.withdraw({
-        amount: BigInt(Math.floor(realBalance * 1_000_000))
-      }, {
-        sender: {
-          addr: activeAddress,
-          signer: transactionSigner,
-        }
+      await client.send.withdraw({
+        args: {
+            amount: BigInt(Math.floor(realBalance * 1_000_000))
+        },
+        extraFee: algokit.microAlgos(1000)
       })
 
       setIsDeposited(false)

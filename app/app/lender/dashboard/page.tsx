@@ -8,15 +8,12 @@ import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { LenderSidebar } from "@/components/lender-sidebar"
 import {
-  Wallet,
-  Users,
-  TrendingUp,
-  PlusCircle,
-  Eye,
-  Heart,
-  DollarSign,
   Target,
 } from "lucide-react"
+import { useAlgorandSigner } from "@/hooks/use-algorand-signer"
+import { getYieldVaultClient, getContractIds } from "@/lib/algorand/client"
+import { useState, useEffect } from "react"
+import { toast } from "sonner"
 
 const activeLendings = [
   {
@@ -54,6 +51,26 @@ const impactStats = [
 import { WalletGuard } from "@/components/wallet-guard"
 
 export default function LenderDashboard() {
+  const { activeAddress } = useAlgorandSigner()
+  const [totalInvested, setTotalInvested] = useState(0)
+  const [isLoading, setIsLoading] = useState(false)
+  
+  const { yieldVaultAppId } = getContractIds()
+
+  useEffect(() => {
+    if (!activeAddress) return
+    const sync = async () => {
+      try {
+        const client = getYieldVaultClient(activeAddress)
+        const balance = await client.getBalance({ args: { user: activeAddress } })
+        setTotalInvested(Number(balance.return) / 1_000_000)
+      } catch (e) {
+        console.error(e)
+      }
+    }
+    sync()
+  }, [activeAddress])
+
   return (
     <div className="flex min-h-screen bg-background">
       <LenderSidebar />
@@ -68,9 +85,11 @@ export default function LenderDashboard() {
               <h1 className="text-2xl font-bold text-foreground">Welcome, Investor!</h1>
               <p className="text-sm text-muted-foreground">Track your lending impact and returns</p>
             </div>
-            <Button className="gap-2 rounded-full">
-              <PlusCircle className="h-4 w-4" />
-              <span className="hidden sm:inline">Add Funds</span>
+            <Button asChild className="gap-2 rounded-full">
+              <Link href="/app/savings">
+                <PlusCircle className="h-4 w-4" />
+                <span className="hidden sm:inline">Add Funds</span>
+              </Link>
             </Button>
           </div>
         </header>
@@ -85,8 +104,8 @@ export default function LenderDashboard() {
                     <Wallet className="h-6 w-6 text-primary" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Total Invested</p>
-                    <p className="text-2xl font-bold text-foreground">₹1,50,000</p>
+                    <p className="text-sm text-muted-foreground">Total Invested (USDC)</p>
+                    <p className="text-2xl font-bold text-foreground">${totalInvested.toFixed(2)}</p>
                   </div>
                 </div>
               </CardContent>

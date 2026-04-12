@@ -15,8 +15,39 @@ import {
   CheckCircle2,
 } from "lucide-react"
 import { WalletGuard } from "@/components/wallet-guard"
+import { useAlgorandSigner } from "@/hooks/use-algorand-signer"
+import { getLoanPoolClient, getYieldVaultClient } from "@/lib/algorand/client"
+import { useState, useEffect } from "react"
 
 export default function BeneficiaryDashboard() {
+  const { activeAddress } = useAlgorandSigner()
+  const [loanStats, setLoanStats] = useState({ amount: 0, repaid: 0, active: false })
+  const [savingsBalance, setSavingsBalance] = useState(0)
+
+  useEffect(() => {
+    if (!activeAddress) return
+    const sync = async () => {
+      try {
+        const poolClient = getLoanPoolClient(activeAddress)
+        const loan0 = await poolClient.getLoan({ args: { borrower: activeAddress, index: BigInt(0) } })
+        if (loan0.return) {
+          setLoanStats({
+            amount: Number(loan0.return.amount) / 1_000_000,
+            repaid: Number(loan0.return.repaidAmount) / 1_000_000,
+            active: !loan0.return.isRepaid
+          })
+        }
+
+        const vaultClient = getYieldVaultClient(activeAddress)
+        const balance = await vaultClient.getBalance({ args: { user: activeAddress } })
+        setSavingsBalance(Number(balance.return) / 1_000_000)
+      } catch (e) {
+        // ...
+      }
+    }
+    sync()
+  }, [activeAddress])
+
   return (
     <div className="flex min-h-screen bg-background">
       <BeneficiarySidebar />
@@ -58,9 +89,9 @@ export default function BeneficiaryDashboard() {
                   <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
                     <Wallet className="h-6 w-6 text-primary" />
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Active Loan</p>
-                    <p className="text-2xl font-bold text-foreground">₹25,000</p>
+                   <div>
+                    <p className="text-sm text-muted-foreground">Active Loan (USDC)</p>
+                    <p className="text-2xl font-bold text-foreground">${loanStats.amount}</p>
                   </div>
                 </div>
               </CardContent>
@@ -72,9 +103,9 @@ export default function BeneficiaryDashboard() {
                   <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-chart-2/20">
                     <PiggyBank className="h-6 w-6 text-chart-2" />
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Savings</p>
-                    <p className="text-2xl font-bold text-foreground">₹8,500</p>
+                   <div>
+                    <p className="text-sm text-muted-foreground">Savings (USDC)</p>
+                    <p className="text-2xl font-bold text-foreground">${savingsBalance.toFixed(2)}</p>
                   </div>
                 </div>
               </CardContent>
@@ -100,9 +131,9 @@ export default function BeneficiaryDashboard() {
                   <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-chart-1/20">
                     <CheckCircle2 className="h-6 w-6 text-chart-1" />
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Repaid</p>
-                    <p className="text-2xl font-bold text-foreground">₹15,000</p>
+                   <div>
+                    <p className="text-sm text-muted-foreground">Repaid (USDC)</p>
+                    <p className="text-2xl font-bold text-foreground">${loanStats.repaid}</p>
                   </div>
                 </div>
               </CardContent>
@@ -112,15 +143,15 @@ export default function BeneficiaryDashboard() {
           {/* Loan Progress */}
           <div className="mb-8 grid gap-6 lg:grid-cols-2">
             <Card>
-              <CardHeader>
+               <CardHeader>
                 <CardTitle>Current Loan Progress</CardTitle>
-                <CardDescription>₹15,000 of ₹25,000 repaid</CardDescription>
+                <CardDescription>${loanStats.repaid} of ${loanStats.amount} repaid</CardDescription>
               </CardHeader>
-              <CardContent>
-                <Progress value={60} className="mb-4 h-3" />
+               <CardContent>
+                <Progress value={loanStats.amount > 0 ? (loanStats.repaid / loanStats.amount) * 100 : 0} className="mb-4 h-3" />
                 <div className="flex justify-between text-sm text-muted-foreground">
-                  <span>60% completed</span>
-                  <span>₹10,000 remaining</span>
+                  <span>{loanStats.amount > 0 ? Math.round((loanStats.repaid / loanStats.amount) * 100) : 0}% completed</span>
+                  <span>${Math.max(0, loanStats.amount - loanStats.repaid)} remaining</span>
                 </div>
                 <div className="mt-6 flex items-center gap-2">
                   <Clock className="h-4 w-4 text-muted-foreground" />

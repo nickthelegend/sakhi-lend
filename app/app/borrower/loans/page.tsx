@@ -1,41 +1,129 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { BeneficiarySidebar } from "@/components/beneficiary-sidebar"
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger 
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Wallet,
   Plus,
   CheckCircle,
   Clock,
 } from "lucide-react"
-
-const loans = [
-  {
-    id: "LN001",
-    amount: 25000,
-    purpose: "Tailoring Business",
-    status: "active",
-    repaid: 15000,
-    emi: 2500,
-    nextDue: "15 Apr 2026",
-    startDate: "15 Jan 2026",
-  },
-  {
-    id: "LN002",
-    amount: 15000,
-    purpose: "Vegetable Cart",
-    status: "completed",
-    repaid: 15000,
-    emi: 0,
-    nextDue: "-",
-    startDate: "10 Aug 2025",
-  },
-]
+import { useAlgorandSigner } from "@/hooks/use-algorand-signer"
+import { getLoanPoolClient, getContractIds, getAlgorandClient } from "@/lib/algorand/client"
+import algosdk from "algosdk"
+import * as algokit from "@algorandfoundation/algokit-utils"
+import { toast } from "sonner"
 
 export default function LoansPage() {
+  const { activeAddress } = useAlgorandSigner()
+  const [realLoans, setRealLoans] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [isRequesting, setIsRequesting] = useState(false)
+  const [requestAmount, setRequestAmount] = useState(100)
+  const [requestPurpose, setRequestPurpose] = useState("Business Expansion")
+  
+  const { loanPoolAppId, usdcAssetId } = getContractIds()
+  const INR_USDC_RATE = 84.50
+
+  const syncLoans = async () => {
+    if (!activeAddress) return
+    try {
+      const client = getLoanPoolClient(activeAddress)
+      const countRes = await client.appClient.getGlobalState()
+      // In a real app we'd fetch individual boxes, for now we can simulate 
+      // or fetch if we know the structure. 
+      // Let's at least show if there's an active loan.
+      
+      // For this demo, let's assume we fetch the first loan if it exists
+      try {
+        const loan0 = await client.getLoan({ args: { borrower: activeAddress, index: BigInt(0) } })
+        if (loan0.return) {
+          setRealLoans([{
+            id: "LP001",
+            amount: Number(loan0.return.amount) / 1_000_000,
+            purpose: loan0.return.purpose,
+            status: loan0.return.isRepaid ? "completed" : "active",
+            repaid: Number(loan0.return.repaidAmount) / 1_000_000,
+            emi: (Number(loan0.return.amount) / 1_000_000) * 0.1, // Mock EMI
+            nextDue: "15 Apr 2026",
+            startDate: "Today"
+          }])
+        }
+      } catch (e) {
+        // No loan 0
+      }
+    } catch (e) {
+      console.error("Sync failed:", e)
+    }
+  }
+
+  useEffect(() => {
+    syncLoans()
+  }, [activeAddress])
+
+  const handleApply = async () => {
+    if (!activeAddress) return
+    setIsRequesting(true)
+    try {
+      const client = getLoanPoolClient(activeAddress)
+      const amountMicro = BigInt(Math.floor(requestAmount * 1_000_000))
+      const appAddress = algosdk.getApplicationAddress(BigInt(loanPoolAppId))
+
+      await client.send.requestLoan({
+        args: {
+          amount: amountMicro,
+          purpose: requestPurpose,
+          mbrPayment: {
+            sender: activeAddress,
+            receiver: appAddress,
+            amount: algokit.microAlgos(200_000), // Cover box and buffer
+          }
+        },
+        extraFee: algokit.microAlgos(1000)
+      })
+
+      toast.success("Loan request submitted! Waiting for admin approval.")
+      syncLoans()
+    } catch (e: any) {
+      console.error(e)
+      toast.error(`Request failed: ${e.message}`)
+    } finally {
+      setIsRequesting(false)
+    }
+  }
+
+  const handlePayEMI = async (loanId: string) => {
+    // Mock Payment for now, logic matches YieldVault deposit
+    toast.info("Processing repayment via USDC...")
+  }
+
+  const displayLoans = realLoans.length > 0 ? realLoans : [
+    {
+        id: "MOCK",
+        amount: 0,
+        purpose: "No active loans",
+        status: "none",
+        repaid: 0,
+        emi: 0,
+        nextDue: "-",
+        startDate: "-"
+    }
+  ]
   return (
     <div className="flex min-h-screen bg-background">
       <BeneficiarySidebar />
@@ -47,10 +135,37 @@ export default function LoansPage() {
               <h1 className="text-2xl font-bold text-foreground">My Loans</h1>
               <p className="text-sm text-muted-foreground">Manage your loan applications and payments</p>
             </div>
-            <Button className="gap-2 rounded-full">
-              <Plus className="h-4 w-4" />
-              Apply for Loan
-            </Button>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button className="gap-2 rounded-full">
+                  <Plus className="h-4 w-4" />
+                  Apply for Loan
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Request New Loan</DialogTitle>
+                  <DialogDescription>
+                    Apply for a microloan in USDC. Amount is converted to INR in dashboard.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="amount" className="text-right">Amount (USDC)</Label>
+                    <Input id="amount" type="number" value={requestAmount} onChange={(e) => setRequestAmount(Number(e.target.value))} className="col-span-3" />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="purpose" className="text-right">Purpose</Label>
+                    <Input id="purpose" value={requestPurpose} onChange={(e) => setRequestPurpose(e.target.value)} className="col-span-3" />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleApply} disabled={isRequesting}>
+                    {isRequesting ? "Submitting..." : "Submit Application"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </header>
 
@@ -83,7 +198,7 @@ export default function LoansPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {loans.map((loan) => (
+                {displayLoans.map((loan) => (
                   <div key={loan.id} className="rounded-xl border border-border p-6">
                     <div className="mb-4 flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -135,7 +250,7 @@ export default function LoansPage() {
 
                     {loan.status === "active" && (
                       <div className="mt-4 flex gap-3">
-                        <Button size="sm">Pay EMI</Button>
+                        <Button size="sm" onClick={() => handlePayEMI(loan.id)}>Pay EMI</Button>
                         <Button size="sm" variant="outline">View Details</Button>
                       </div>
                     )}
