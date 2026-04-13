@@ -10,6 +10,8 @@ const LoanMetadataSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  borrowerName: String,
+  businessName: String,
   story: {
     type: String,
     required: true,
@@ -18,8 +20,15 @@ const LoanMetadataSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'active', 'repaid', 'denied'],
+    default: 'pending',
+  },
   photoUrl: String,
-  mannDeshiScore: Number, // The verified off-chain index
+  mannDeshiScore: Number, 
+  loanAmount: Number,
+  currentFunding: { type: Number, default: 0 },
   createdAt: {
     type: Date,
     default: Date.now,

@@ -24,44 +24,21 @@ import { toast } from "sonner"
 import { WalletGuard } from "@/components/wallet-guard"
 import { useUserSync } from "@/hooks/use-user-sync"
 
-const activeLendings = [
-  {
-    name: "Priya Sharma",
-    purpose: "Tailoring Business",
-    amount: "₹25,000",
-    funded: 80,
-    yield: "12%",
-    image: "/images/beneficiary-woman.jpg",
-  },
-  {
-    name: "Lakshmi Devi",
-    purpose: "Vegetable Farming",
-    amount: "₹30,000",
-    funded: 100,
-    yield: "10%",
-    image: "/images/impact-woman.jpg",
-  },
-  {
-    name: "Meera Kumari",
-    purpose: "Handicraft Shop",
-    amount: "₹20,000",
-    funded: 65,
-    yield: "11%",
-    image: "/images/hero-women.jpg",
-  },
-]
-
-const impactStats = [
-  { label: "Women Supported", value: "12", icon: Users },
-  { label: "Jobs Created", value: "35", icon: Target },
-  { label: "Communities Reached", value: "8", icon: Heart },
-]
+interface LendingItem {
+  _id: string
+  borrowerName: string
+  businessName: string
+  loanAmount: number
+  currentFunding: number
+  imageUrl: string
+}
 
 export default function LenderDashboard() {
   const { activeAddress } = useAlgorandSigner()
   useUserSync() // Sync lender profile to MongoDB
   const [totalInvested, setTotalInvested] = useState(0)
-  const [isLoading, setIsLoading] = useState(false)
+  const [activeLoans, setActiveLoans] = useState<LendingItem[]>([])
+  const [loading, setLoading] = useState(true)
   
   const { yieldVaultAppId } = getContractIds()
 
@@ -72,12 +49,25 @@ export default function LenderDashboard() {
         const client = getYieldVaultClient(activeAddress)
         const balance = await client.getBalance({ args: { user: activeAddress } })
         setTotalInvested(Number(balance.return) / 1_000_000)
+
+        // Fetch funded loans (simulation: showing all for demo, in production we would filter by lender involvement)
+        const res = await fetch('/api/loans')
+        const data = await res.json()
+        setActiveLoans(data.slice(0, 3))
       } catch (e) {
         console.error(e)
+      } finally {
+        setLoading(false)
       }
     }
     sync()
   }, [activeAddress])
+
+  const impactStats = [
+    { label: "Women Supported", value: activeLoans.length > 0 ? "4" : "0", icon: Users },
+    { label: "Jobs Created", value: activeLoans.length > 0 ? "12" : "0", icon: Target },
+    { label: "Communities Reached", value: activeLoans.length > 0 ? "3" : "0", icon: Heart },
+  ]
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -85,18 +75,18 @@ export default function LenderDashboard() {
 
       {/* Main Content */}
       <main className="flex-1">
-        <WalletGuard>
+        <WalletGuard role="lender">
           <header className="border-b border-border bg-card px-6 py-4">
 
           <div className="flex items-center justify-between">
             <div className="ml-12 lg:ml-0">
-              <h1 className="text-2xl font-bold text-foreground">Welcome, Investor!</h1>
-              <p className="text-sm text-muted-foreground">Track your lending impact and returns</p>
+              <h1 className="text-2xl font-bold text-foreground font-display tracking-tight">Welcome, Investor!</h1>
+              <p className="text-sm text-muted-foreground font-medium">Track your impact and social returns</p>
             </div>
-            <Button asChild className="gap-2 rounded-full">
+            <Button asChild className="gap-2 rounded-full px-6 shadow-md hover:shadow-lg transition-all active:scale-95">
               <Link href="/app/savings">
                 <PlusCircle className="h-4 w-4" />
-                <span className="hidden sm:inline">Add Funds</span>
+                <span>Add Funds</span>
               </Link>
             </Button>
           </div>
@@ -105,57 +95,61 @@ export default function LenderDashboard() {
         <div className="p-6">
           {/* Portfolio Overview */}
           <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="bg-gradient-to-br from-primary/10 to-primary/5">
+            <Card className="bg-gradient-to-br from-primary/10 to-transparent border-primary/20 shadow-sm overflow-hidden relative">
+              <div className="absolute -right-4 -top-4 w-24 h-24 bg-primary/10 rounded-full blur-2xl" />
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/20">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/20 ring-1 ring-primary/30">
                     <Wallet className="h-6 w-6 text-primary" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Total Invested (USDC)</p>
-                    <p className="text-2xl font-bold text-foreground">${totalInvested.toFixed(2)}</p>
+                    <p className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Total Invested</p>
+                    <p className="text-2xl font-black text-foreground">${totalInvested.toFixed(2)}</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-border/50 shadow-sm relative overflow-hidden">
+               <div className="absolute -right-4 -top-4 w-24 h-24 bg-chart-2/10 rounded-full blur-2xl" />
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-chart-2/20">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-chart-2/20 ring-1 ring-chart-2/30">
                     <TrendingUp className="h-6 w-6 text-chart-2" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Total Returns</p>
-                    <p className="text-2xl font-bold text-foreground">₹18,500</p>
+                    <p className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Returns (Est.)</p>
+                    <p className="text-2xl font-black text-foreground">₹{(totalInvested * 84.5 * 0.12).toFixed(0)}</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-border/50 shadow-sm relative overflow-hidden">
+              <div className="absolute -right-4 -top-4 w-24 h-24 bg-chart-4/10 rounded-full blur-2xl" />
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-chart-4/20">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-chart-4/20 ring-1 ring-chart-4/30">
                     <DollarSign className="h-6 w-6 text-chart-4" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Avg. Yield</p>
-                    <p className="text-2xl font-bold text-foreground">12.3%</p>
+                    <p className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Target Yield</p>
+                    <p className="text-2xl font-black text-foreground">12.0%</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-border/50 shadow-sm relative overflow-hidden">
+              <div className="absolute -right-4 -top-4 w-24 h-24 bg-chart-1/10 rounded-full blur-2xl" />
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-chart-1/20">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-chart-1/20 ring-1 ring-chart-1/30">
                     <Users className="h-6 w-6 text-chart-1" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Active Loans</p>
-                    <p className="text-2xl font-bold text-foreground">12</p>
+                    <p className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Supported</p>
+                    <p className="text-2xl font-black text-foreground">{activeLoans.length}</p>
                   </div>
                 </div>
               </CardContent>
@@ -163,30 +157,32 @@ export default function LenderDashboard() {
           </div>
 
           {/* Impact Section */}
-          <Card className="mb-8 overflow-hidden">
-            <div className="grid lg:grid-cols-3">
+          <Card className="mb-8 overflow-hidden border-none bg-gradient-to-br from-primary/5 to-chart-2/5 backdrop-blur-sm shadow-inner p-1">
+            <div className="grid lg:grid-cols-3 bg-card rounded-[calc(var(--radius)-1px)] overflow-hidden">
               <div className="relative col-span-1 hidden aspect-square lg:block">
                 <Image
                   src="/images/lender-support.jpg"
                   alt="Women entrepreneurs being supported"
                   fill
-                  className="object-cover"
+                  className="object-cover transition-transform duration-700 hover:scale-110"
                 />
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent to-card" />
               </div>
-              <div className="col-span-2 p-6">
-                <CardTitle className="mb-4 flex items-center gap-2">
-                  <Heart className="h-5 w-5 text-primary" />
-                  Your Impact
+              <div className="col-span-2 p-8">
+                <CardTitle className="mb-4 flex items-center gap-2 text-2xl font-bold tracking-tight">
+                  <Heart className="h-6 w-6 text-primary fill-primary/20" />
+                  Our Collective Impact
                 </CardTitle>
-                <CardDescription className="mb-6">
-                  See how your investments are making a real difference in rural communities
+                <CardDescription className="mb-8 text-base">
+                  Your capital doesn't just earn yield; it builds poultry farms, tailoring units, and grocery stores. 
+                  Every ₹100 lent is a step towards financial sovereignty for a Sakhi.
                 </CardDescription>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-6">
                   {impactStats.map((stat, index) => (
-                    <div key={index} className="rounded-xl bg-accent/50 p-4 text-center">
-                      <stat.icon className="mx-auto mb-2 h-8 w-8 text-primary" />
-                      <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-                      <p className="text-xs text-muted-foreground">{stat.label}</p>
+                    <div key={index} className="rounded-2xl bg-accent/30 p-6 text-center border border-border/50 shadow-sm transition-all hover:bg-accent/50">
+                      <stat.icon className="mx-auto mb-3 h-10 w-10 text-primary opacity-80" />
+                      <p className="text-3xl font-black text-foreground">{stat.value}</p>
+                      <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">{stat.label}</p>
                     </div>
                   ))}
                 </div>
@@ -195,65 +191,66 @@ export default function LenderDashboard() {
           </Card>
 
           {/* Active Lendings */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Active Lendings</CardTitle>
-                  <CardDescription>Track your funded beneficiaries</CardDescription>
-                </div>
-                <Button asChild variant="outline" size="sm" className="gap-2">
-                  <Link href="/lender/portfolio">
-                    <Eye className="h-4 w-4" />
-                    View All
-                  </Link>
-                </Button>
+          <Card className="border-border/50 shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between pb-6">
+              <div>
+                <CardTitle className="text-xl font-bold tracking-tight">My Active Impact</CardTitle>
+                <CardDescription className="text-sm font-medium">Personal tracking of women you've backed</CardDescription>
               </div>
+              <Button asChild variant="ghost" size="sm" className="gap-2 rounded-full font-bold text-primary hover:bg-primary/5">
+                <Link href="/app/lender/browse">
+                  <Eye className="h-4 w-4" />
+                  View More
+                </Link>
+              </Button>
             </CardHeader>
             <CardContent>
-              <div className="space-y-6">
-                {activeLendings.map((lending, index) => (
-                  <div
-                    key={index}
-                    className="flex flex-col gap-4 rounded-xl border border-border p-4 sm:flex-row sm:items-center"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="h-14 w-14 overflow-hidden rounded-full bg-accent">
-                        <Image
-                          src={lending.image}
-                          alt={lending.name}
-                          width={56}
-                          height={56}
-                          className="h-full w-full object-cover"
-                        />
+              <div className="space-y-4">
+                {activeLoans.map((lending) => {
+                  const progress = Math.min(100, Math.round((lending.currentFunding || 0) / (lending.loanAmount || 1) * 100))
+                  
+                  return (
+                    <div
+                      key={lending._id}
+                      className="group flex flex-col gap-4 rounded-2xl border border-border/50 p-5 sm:flex-row sm:items-center transition-all hover:bg-accent/20 hover:border-primary/20"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-accent ring-2 ring-primary/5 transition-transform group-hover:scale-105">
+                          <Image
+                            src={lending.imageUrl || "/images/impact-woman.jpg"}
+                            alt={lending.borrowerName}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                        <div className="min-w-[140px]">
+                          <p className="font-bold text-foreground leading-tight">{lending.borrowerName}</p>
+                          <p className="text-xs font-semibold text-primary">{lending.businessName}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-foreground">{lending.name}</p>
-                        <p className="text-sm text-muted-foreground">{lending.purpose}</p>
-                      </div>
-                    </div>
 
-                    <div className="flex-1 sm:px-6">
-                      <div className="mb-2 flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Funding Progress</span>
-                        <span className="font-medium text-foreground">{lending.funded}%</span>
+                      <div className="flex-1 sm:px-6">
+                        <div className="mb-2 flex items-center justify-between text-xs font-bold uppercase tracking-wider">
+                          <span className="text-muted-foreground">Funding Goal</span>
+                          <span className="text-foreground">{progress}%</span>
+                        </div>
+                        <Progress value={progress} className="h-2 rounded-full overflow-hidden" />
                       </div>
-                      <Progress value={lending.funded} className="h-2" />
-                    </div>
 
-                    <div className="flex items-center gap-6">
-                      <div className="text-center">
-                        <p className="text-lg font-bold text-foreground">{lending.amount}</p>
-                        <p className="text-xs text-muted-foreground">Amount</p>
-                      </div>
-                      <div className="text-center">
-                        <Badge variant="secondary" className="bg-chart-2/20 text-chart-2">
-                          {lending.yield} Yield
-                        </Badge>
+                      <div className="flex items-center gap-10">
+                        <div className="text-right">
+                          <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-tighter mb-0.5">Your Share</p>
+                          <p className="text-lg font-black text-foreground">₹{(lending.loanAmount * 0.1).toLocaleString()}</p>
+                        </div>
+                        <div className="text-center">
+                          <Badge variant="secondary" className="bg-chart-2/10 text-chart-2 border border-chart-2/20 font-bold px-3 py-1">
+                            12% APY
+                          </Badge>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </CardContent>
           </Card>

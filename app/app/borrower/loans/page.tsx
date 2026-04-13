@@ -29,6 +29,8 @@ import algosdk from "algosdk"
 import * as algokit from "@algorandfoundation/algokit-utils"
 import { toast } from "sonner"
 import { useUserSync } from "@/hooks/use-user-sync"
+import { TxLoadingModal } from "@/components/tx-loading-modal"
+import { triggerConfetti } from "@/lib/utils"
 
 export default function LoansPage() {
   const { activeAddress } = useAlgorandSigner()
@@ -39,6 +41,8 @@ export default function LoansPage() {
   const [isRequesting, setIsRequesting] = useState(false)
   const [requestAmount, setRequestAmount] = useState(100)
   const [requestPurpose, setRequestPurpose] = useState("Business Expansion")
+  const [txStatus, setTxStatus] = useState<"signing" | "confirming" | "success">("signing")
+  const [isModalOpen, setIsModalOpen] = useState(false)
   const { loanPoolAppId, usdcAssetId } = getContractIds()
   const INR_USDC_RATE = 84.50
 
@@ -103,7 +107,10 @@ export default function LoansPage() {
   const handleApply = async () => {
     if (!activeAddress) return
     setIsRequesting(true)
+    setIsModalOpen(true)
+    setTxStatus("signing")
     try {
+      setTxStatus("confirming")
       const client = getLoanPoolClient(activeAddress)
       const amountMicro = BigInt(Math.floor(requestAmount * 1_000_000))
       const appAddress = algosdk.getApplicationAddress(BigInt(loanPoolAppId))
@@ -121,10 +128,14 @@ export default function LoansPage() {
         extraFee: algokit.microAlgos(1000)
       })
 
+      setTxStatus("success")
+      triggerConfetti()
       toast.success("Loan request submitted! Waiting for admin approval.")
       syncLoans()
+      setTimeout(() => setIsModalOpen(false), 3000)
     } catch (e: any) {
       console.error(e)
+      setIsModalOpen(false)
       toast.error(`Request failed: ${e.message}`)
     } finally {
       setIsRequesting(false)
@@ -137,9 +148,11 @@ export default function LoansPage() {
     const amountToPay = 10 // Example EMI amount in USDC
     const amountMicro = BigInt(amountToPay * 1_000_000)
     
-    toast.info(`Processing EMI payment of ${amountToPay} USDC...`)
+    setIsModalOpen(true)
+    setTxStatus("signing")
     
     try {
+      setTxStatus("confirming")
       const client = getLoanPoolClient(activeAddress)
       const algorand = getAlgorandClient()
       const sp = await algorand.client.algod.getTransactionParams().do()
@@ -160,10 +173,14 @@ export default function LoansPage() {
         extraFee: algokit.microAlgos(2000)
       })
 
+      setTxStatus("success")
+      triggerConfetti()
       toast.success("EMI payment confirmed!")
       syncLoans()
+      setTimeout(() => setIsModalOpen(false), 3000)
     } catch (e: any) {
       console.error(e)
+      setIsModalOpen(false)
       toast.error(`Payment failed: ${e.message}`)
     }
   }
@@ -316,6 +333,12 @@ export default function LoansPage() {
             </CardContent>
           </Card>
         </div>
+
+        <TxLoadingModal 
+          isOpen={isModalOpen} 
+          status={txStatus} 
+          message={txStatus === "success" ? "Wonderful! Your transaction is complete." : undefined}
+        />
       </main>
     </div>
   )

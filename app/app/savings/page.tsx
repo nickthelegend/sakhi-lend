@@ -20,9 +20,11 @@ import { Navbar } from "@/components/navbar"
 import { WalletGuard } from "@/components/wallet-guard"
 import { useWallet } from "@txnlab/use-wallet-react"
 import { useAlgorandSigner } from "@/hooks/use-algorand-signer"
-import { getYieldVaultClient, getContractIds, getAlgorandClient } from "@/lib/algorand/client"
 import algosdk from "algosdk"
-import { toast } from "sonner" // Assuming toast is available or I'll just use alerts
+import * as algokit from "@algorandfoundation/algokit-utils"
+import { toast } from "sonner"
+import { TxLoadingModal } from "@/components/tx-loading-modal"
+import { triggerConfetti } from "@/lib/utils"
 
 export default function DigiSavingsPage() {
   const { activeAddress } = useAlgorandSigner()
@@ -33,6 +35,8 @@ export default function DigiSavingsPage() {
   const [currentBlock, setCurrentBlock] = useState<number>(0)
   const [realBalance, setRealBalance] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(false)
+  const [txStatus, setTxStatus] = useState<"signing" | "confirming" | "success">("signing")
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   const { yieldVaultAppId, usdcAssetId } = getContractIds()
 
@@ -88,7 +92,10 @@ export default function DigiSavingsPage() {
     }
 
     setIsLoading(true)
+    setIsModalOpen(true)
+    setTxStatus("signing")
     try {
+      setTxStatus("confirming")
       const client = getYieldVaultClient(activeAddress)
       const amountMicro = BigInt(Math.floor(parseFloat(usdcAmount) * 1_000_000))
       const appAddress = algosdk.getApplicationAddress(BigInt(yieldVaultAppId))
@@ -124,10 +131,15 @@ export default function DigiSavingsPage() {
         })
       }
 
-      setIsDeposited(true)
+      setTxStatus("success")
+      triggerConfetti()
       toast.success("Deposit successful! Your savings are now earning yield.")
+      
+      // Close modal after delay
+      setTimeout(() => setIsModalOpen(false), 3000)
     } catch (e: any) {
       console.error(e)
+      setIsModalOpen(false)
       toast.error(`Deposit failed: ${e.message || "Unknown error"}`)
     } finally {
       setIsLoading(false)
@@ -137,7 +149,10 @@ export default function DigiSavingsPage() {
   const handleWithdraw = async () => {
     if (!activeAddress) return
     setIsLoading(true)
+    setIsModalOpen(true)
+    setTxStatus("signing")
     try {
+      setTxStatus("confirming")
       const client = getYieldVaultClient(activeAddress)
 
       await client.send.withdraw({
@@ -147,12 +162,12 @@ export default function DigiSavingsPage() {
         extraFee: algokit.microAlgos(1000)
       })
 
-      setIsDeposited(false)
-      setRealBalance(0)
-      setAccumulatedYield(0)
+      setTxStatus("success")
       toast.success("Withdrawal successful! Funds sent to your wallet.")
+      setTimeout(() => setIsModalOpen(false), 3000)
     } catch (e: any) {
       console.error(e)
+      setIsModalOpen(false)
       toast.error(`Withdrawal failed: ${e.message}`)
     } finally {
       setIsLoading(false)
@@ -236,6 +251,12 @@ export default function DigiSavingsPage() {
                   {isLoading ? "Processing..." : "Withdraw to Bank"}
                 </UIButton>
               )}
+
+              <TxLoadingModal 
+                isOpen={isModalOpen} 
+                status={txStatus} 
+                message={txStatus === "success" ? "Great job! Your savings have been processed safely." : undefined}
+              />
 
             </CardContent>
           </Card>
