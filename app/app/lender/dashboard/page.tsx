@@ -9,11 +9,20 @@ import { Badge } from "@/components/ui/badge"
 import { LenderSidebar } from "@/components/lender-sidebar"
 import {
   Target,
+  PlusCircle,
+  Wallet,
+  TrendingUp,
+  DollarSign,
+  Users,
+  Heart,
+  Eye,
 } from "lucide-react"
 import { useAlgorandSigner } from "@/hooks/use-algorand-signer"
 import { getYieldVaultClient, getContractIds } from "@/lib/algorand/client"
 import { useState, useEffect } from "react"
 import { toast } from "sonner"
+import { WalletGuard } from "@/components/wallet-guard"
+import { useUserSync } from "@/hooks/use-user-sync"
 
 const activeLendings = [
   {
@@ -48,10 +57,9 @@ const impactStats = [
   { label: "Communities Reached", value: "8", icon: Heart },
 ]
 
-import { WalletGuard } from "@/components/wallet-guard"
-
 export default function LenderDashboard() {
   const { activeAddress } = useAlgorandSigner()
+  useUserSync() // Sync lender profile to MongoDB
   const [totalInvested, setTotalInvested] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   

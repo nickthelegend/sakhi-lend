@@ -17,11 +17,11 @@ import {
 import { useState } from "react"
 
 const navigation = [
-  { name: "Dashboard", icon: LayoutDashboard, href: "/lender/dashboard" },
-  { name: "My Portfolio", icon: Wallet, href: "/lender/portfolio" },
-  { name: "Browse Beneficiaries", icon: Users, href: "/lender/browse" },
-  { name: "Returns", icon: TrendingUp, href: "/lender/returns" },
-  { name: "Settings", icon: Settings, href: "/lender/settings" },
+  { name: "Dashboard", icon: LayoutDashboard, href: "/app/lender/dashboard" },
+  { name: "My Portfolio", icon: Wallet, href: "/app/lender/portfolio" },
+  { name: "Browse Beneficiaries", icon: Users, href: "/app/lender/browse" },
+  { name: "Returns", icon: TrendingUp, href: "/app/lender/returns" },
+  { name: "Settings", icon: Settings, href: "/app/lender/settings" },
 ]
 
 export function LenderSidebar() {

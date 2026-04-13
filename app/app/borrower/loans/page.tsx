@@ -28,9 +28,11 @@ import { getLoanPoolClient, getContractIds, getAlgorandClient } from "@/lib/algo
 import algosdk from "algosdk"
 import * as algokit from "@algorandfoundation/algokit-utils"
 import { toast } from "sonner"
+import { useUserSync } from "@/hooks/use-user-sync"
 
 export default function LoansPage() {
   const { activeAddress } = useAlgorandSigner()
+  useUserSync() // Automatically sync profile to MongoDB
   const [realLoans, setRealLoans] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [stats, setStats] = useState({ totalBorrowed: 0, totalRepaid: 0, outstanding: 0 })
@@ -62,10 +64,18 @@ export default function LoansPage() {
           const loanData = await client.appClient.getBoxValueFromMap("loans", userLoanId) as any
           
           if (loanData) {
+            // Fetch rich metadata from MongoDB
+            let meta = { story: loanData.purpose, photoUrl: null }
+            try {
+              const metaRes = await fetch(`/api/loans/${userLoanId}`)
+              if (metaRes.ok) meta = await metaRes.json()
+            } catch (e) { console.warn("Metadata not found in DB") }
+
             setRealLoans([{
               id: `LP-${userLoanId}`,
               amount: Number(loanData.amount) / 1_000_000,
-              purpose: loanData.purpose,
+              purpose: meta.story, // Use story from MongoDB
+              photoUrl: meta.photoUrl,
               status: Number(loanData.status) === 3 ? "completed" : "active",
               repaid: Number(loanData.amountRepaid) / 1_000_000,
               emi: (Number(loanData.amount) / 1_000_000) * 0.1, // Simulated 10% EMI
