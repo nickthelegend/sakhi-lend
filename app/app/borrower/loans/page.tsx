@@ -33,10 +33,10 @@ export default function LoansPage() {
   const { activeAddress } = useAlgorandSigner()
   const [realLoans, setRealLoans] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [stats, setStats] = useState({ totalBorrowed: 0, totalRepaid: 0, outstanding: 0 })
   const [isRequesting, setIsRequesting] = useState(false)
   const [requestAmount, setRequestAmount] = useState(100)
   const [requestPurpose, setRequestPurpose] = useState("Business Expansion")
-  
   const { loanPoolAppId, usdcAssetId } = getContractIds()
   const INR_USDC_RATE = 84.50
 
@@ -44,28 +44,42 @@ export default function LoansPage() {
     if (!activeAddress) return
     try {
       const client = getLoanPoolClient(activeAddress)
-      const countRes = await client.appClient.getGlobalState()
-      // In a real app we'd fetch individual boxes, for now we can simulate 
-      // or fetch if we know the structure. 
-      // Let's at least show if there's an active loan.
+      const globalState = await client.appClient.getGlobalState()
       
-      // For this demo, let's assume we fetch the first loan if it exists
+      const issued = Number(globalState.totalLoansIssued?.value ?? 0) / 1_000_000
+      const repaid = Number(globalState.totalRepaid?.value ?? 0) / 1_000_000
+      
+      setStats({
+        totalBorrowed: issued * INR_USDC_RATE,
+        totalRepaid: repaid * INR_USDC_RATE,
+        outstanding: (issued - repaid) * INR_USDC_RATE
+      })
+
+      // Fetch active loan ID for user
       try {
-        const loan0 = await client.getLoan({ args: { borrower: activeAddress, index: BigInt(0) } })
-        if (loan0.return) {
-          setRealLoans([{
-            id: "LP001",
-            amount: Number(loan0.return.amount) / 1_000_000,
-            purpose: loan0.return.purpose,
-            status: loan0.return.isRepaid ? "completed" : "active",
-            repaid: Number(loan0.return.repaidAmount) / 1_000_000,
-            emi: (Number(loan0.return.amount) / 1_000_000) * 0.1, // Mock EMI
-            nextDue: "15 Apr 2026",
-            startDate: "Today"
-          }])
+        const userLoanId = await client.appClient.getBoxValueFromMap("userLoans", activeAddress)
+        if (userLoanId && Number(userLoanId) !== 0) {
+          const loanData = await client.appClient.getBoxValueFromMap("loans", userLoanId) as any
+          
+          if (loanData) {
+            setRealLoans([{
+              id: `LP-${userLoanId}`,
+              amount: Number(loanData.amount) / 1_000_000,
+              purpose: loanData.purpose,
+              status: Number(loanData.status) === 3 ? "completed" : "active",
+              repaid: Number(loanData.amountRepaid) / 1_000_000,
+              emi: (Number(loanData.amount) / 1_000_000) * 0.1, // Simulated 10% EMI
+              nextDue: "15 Apr 2026",
+              startDate: new Date(Number(loanData.requestedAt) * 1000).toLocaleDateString()
+            }])
+          }
+        } else {
+          setRealLoans([])
         }
       } catch (e) {
-        // No loan 0
+        console.warn("No active loan box found for user")
+        setRealLoans([])
+      }
       }
     } catch (e) {
       console.error("Sync failed:", e)
@@ -107,9 +121,41 @@ export default function LoansPage() {
     }
   }
 
-  const handlePayEMI = async (loanId: string) => {
-    // Mock Payment for now, logic matches YieldVault deposit
-    toast.info("Processing repayment via USDC...")
+  const handlePayEMI = async (loanIdStr: string) => {
+    if (!activeAddress) return
+    const loanId = BigInt(loanIdStr.replace("LP-", ""))
+    const amountToPay = 10 // Example EMI amount in USDC
+    const amountMicro = BigInt(amountToPay * 1_000_000)
+    
+    toast.info(`Processing EMI payment of ${amountToPay} USDC...`)
+    
+    try {
+      const client = getLoanPoolClient(activeAddress)
+      const algorand = getAlgorandClient()
+      const sp = await algorand.client.algod.getTransactionParams().do()
+      
+      const axfer = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
+        from: activeAddress,
+        to: algosdk.getApplicationAddress(BigInt(loanPoolAppId)),
+        assetIndex: BigInt(usdcAssetId),
+        amount: amountMicro,
+        suggestedParams: sp,
+      })
+
+      await client.send.repayLoan({
+        args: {
+            loanId,
+            axfer
+        },
+        extraFee: algokit.microAlgos(2000)
+      })
+
+      toast.success("EMI payment confirmed!")
+      syncLoans()
+    } catch (e: any) {
+      console.error(e)
+      toast.error(`Payment failed: ${e.message}`)
+    }
   }
 
   const displayLoans = realLoans.length > 0 ? realLoans : [
@@ -174,19 +220,19 @@ export default function LoansPage() {
             <Card>
               <CardContent className="p-6 text-center">
                 <p className="text-sm text-muted-foreground">Total Borrowed</p>
-                <p className="text-3xl font-bold text-foreground">₹40,000</p>
+                <p className="text-3xl font-bold text-foreground">₹{stats.totalBorrowed.toLocaleString()}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-6 text-center">
                 <p className="text-sm text-muted-foreground">Total Repaid</p>
-                <p className="text-3xl font-bold text-chart-2">₹30,000</p>
+                <p className="text-3xl font-bold text-chart-2">₹{stats.totalRepaid.toLocaleString()}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-6 text-center">
                 <p className="text-sm text-muted-foreground">Outstanding</p>
-                <p className="text-3xl font-bold text-primary">₹10,000</p>
+                <p className="text-3xl font-bold text-primary">₹{stats.outstanding.toLocaleString()}</p>
               </CardContent>
             </Card>
           </div>

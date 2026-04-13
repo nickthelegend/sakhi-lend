@@ -6,6 +6,7 @@ import { Button as UIButton } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Slider } from "@/components/ui/slider"
+import { cn, getRelatableValue } from "@/lib/utils"
 import { 
   PiggyBank, 
   TrendingUp, 
@@ -62,7 +63,7 @@ export default function DigiSavingsPage() {
     syncBalance()
     const interval = setInterval(syncBalance, 10000)
     return () => clearInterval(interval)
-  }, [activeAddress, appId])
+  }, [activeAddress, yieldVaultAppId])
 
   // Simulation effect for UI smoothness
   useEffect(() => {
@@ -159,15 +160,6 @@ export default function DigiSavingsPage() {
   }
 
   const yieldInINR = (accumulatedYield * INR_USDC_RATE).toFixed(2)
-
-  // Local language relatable feedback
-  const getRelatableMessage = (yieldInInr: number) => {
-    if (yieldInInr < 0.1) return "Apki bachat badh rahi hai!"
-    if (yieldInInr < 1) return `Aaj aapne ₹${yieldInInr.toFixed(2)} kamaye - Shuruaat acchi hai!`
-    if (yieldInInr < 5) return `Aaj aapne ₹${yieldInInr.toFixed(2)} kamaye - Ek Parle-G packet jitna!`
-    if (yieldInInr < 15) return `Aaj aapne ₹${yieldInInr.toFixed(2)} kamaye - Ek garam chai jitna!`
-    return `Aaj aapne ₹${yieldInInr.toFixed(2)} kamaye - Aapki mehnat rang la rahi hai!`
-  }
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -291,7 +283,7 @@ export default function DigiSavingsPage() {
                     <div>
                       <p className="text-xs text-primary font-semibold uppercase tracking-wider">Growth Report</p>
                       <p className="text-sm font-medium leading-tight">
-                        {isDeposited ? getRelatableMessage(parseFloat(yieldInINR)) : "Deposit to see your savings grow!"}
+                        {isDeposited ? getRelatableValue(parseFloat(yieldInINR)) : "Deposit to see your savings grow!"}
                       </p>
                     </div>
                   </div>
