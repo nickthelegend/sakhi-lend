@@ -38,11 +38,14 @@ export default function AdminLoansPage() {
   }, [])
 
   const fetchLoans = async () => {
+    console.log("[SakhiLend DEBUG] Fetching all loan requests from MongoDB API...")
     try {
       const res = await fetch("/api/loans")
       const data = await res.json()
+      console.log("[SakhiLend DEBUG] Fetched Loans Count:", data.length)
       setLoans(data)
     } catch (e) {
+      console.error("[SakhiLend DEBUG] Fetch Failed:", e)
       toast.error("Failed to fetch loans")
     } finally {
       setLoading(false)
@@ -51,6 +54,7 @@ export default function AdminLoansPage() {
 
   const handleApprove = async (loan: LoanRequest) => {
     if (!activeAddress) return
+    console.log("[SakhiLend DEBUG] Admin Approving Loan ID:", loan.loanId)
     setIsModalOpen(true)
     setTxStatus("signing")
 
@@ -58,25 +62,26 @@ export default function AdminLoansPage() {
       const client = getLoanPoolClient(activeAddress)
       setTxStatus("confirming")
       
-      // Call approveLoan(loanId, interestRateBps, ttfScore)
+      console.log("[SakhiLend DEBUG] Calling approveLoan on-chain...")
       await client.approveLoan({
         loanId: BigInt(loan.loanId),
         interestRateBps: 1200n, // 12% default
         ttfScore: BigInt(loan.mannDeshiScore || 700)
       })
 
-      // Sync to MongoDB
+      console.log("[SakhiLend DEBUG] Syncing approval status to MongoDB...")
       await fetch("/api/admin/loans/update", {
         method: "POST",
         body: JSON.stringify({ loanId: loan.loanId, status: "approved" }),
       })
 
+      console.log("[SakhiLend DEBUG] Approval flow complete.")
       setTxStatus("success")
       toast.success("Loan approved on-chain!")
       fetchLoans()
       setTimeout(() => setIsModalOpen(false), 3000)
     } catch (e: any) {
-      console.error(e)
+      console.error("[SakhiLend DEBUG] Approval Error:", e)
       setIsModalOpen(false)
       toast.error(`Approval failed: ${e.message}`)
     }
@@ -84,6 +89,7 @@ export default function AdminLoansPage() {
 
   const handleDisburse = async (loan: LoanRequest) => {
     if (!activeAddress) return
+    console.log("[SakhiLend DEBUG] Admin Disbursing Funds for Loan ID:", loan.loanId)
     setIsModalOpen(true)
     setTxStatus("signing")
 
@@ -91,25 +97,27 @@ export default function AdminLoansPage() {
       const client = getLoanPoolClient(activeAddress)
       setTxStatus("confirming")
       
+      console.log("[SakhiLend DEBUG] Calling disburseLoan on-chain...")
       await client.disburseLoan({
         loanId: BigInt(loan.loanId)
       }, {
-        extraFee: { microAlgos: 1000 } // Covering asset transfer fee
+        extraFee: algokit.microAlgos(1000)
       })
 
-      // Sync to MongoDB
+      console.log("[SakhiLend DEBUG] Syncing active status to MongoDB...")
       await fetch("/api/admin/loans/update", {
         method: "POST",
         body: JSON.stringify({ loanId: loan.loanId, status: "active" }),
       })
 
+      console.log("[SakhiLend DEBUG] Disbursement flow complete.")
       setTxStatus("success")
       triggerConfetti()
       toast.success("Funds disbursed to Sakhi!")
       fetchLoans()
       setTimeout(() => setIsModalOpen(false), 3000)
     } catch (e: any) {
-      console.error(e)
+      console.error("[SakhiLend DEBUG] Disbursement Error:", e)
       setIsModalOpen(false)
       toast.error(`Disbursement failed: ${e.message}`)
     }

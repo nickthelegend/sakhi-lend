@@ -124,23 +124,19 @@ export default function DigiSavingsPage() {
           extraFee: algokit.microAlgos(1000)
         })
       } else {
-        // Recurring
-        await client.send.depositMore({
-          args: { axfer },
-          extraFee: algokit.microAlgos(1000)
-        })
-      }
-
+        extraFee: algokit.microAlgos(2000)
+      })
+      
+      console.log("[SakhiLend DEBUG] Deposit Successful. Hash:", res.transaction.txID())
       setTxStatus("success")
       triggerConfetti()
-      toast.success("Deposit successful! Your savings are now earning yield.")
-      
-      // Close modal after delay
+      toast.success("Deposit successful! Your money is now earning yield.")
+      syncBalance()
       setTimeout(() => setIsModalOpen(false), 3000)
     } catch (e: any) {
-      console.error(e)
+      console.error("[SakhiLend DEBUG] Deposit Error:", e)
       setIsModalOpen(false)
-      toast.error(`Deposit failed: ${e.message || "Unknown error"}`)
+      toast.error(`Deposit failed: ${e.message}`)
     } finally {
       setIsLoading(false)
     }
@@ -148,25 +144,32 @@ export default function DigiSavingsPage() {
 
   const handleWithdraw = async () => {
     if (!activeAddress) return
+    console.log("[SakhiLend DEBUG] Initiating Withdrawal:", amount)
     setIsLoading(true)
     setIsModalOpen(true)
     setTxStatus("signing")
     try {
       setTxStatus("confirming")
+      console.log("[SakhiLend DEBUG] Getting YieldVault client for:", activeAddress)
       const client = getYieldVaultClient(activeAddress)
-
-      await client.send.withdraw({
-        args: {
-            amount: BigInt(Math.floor(realBalance * 1_000_000))
-        },
-        extraFee: algokit.microAlgos(1000)
+      const amountMicro = BigInt(Math.floor(amount * 1_000_000))
+      
+      console.log("[SakhiLend DEBUG] Preparing withdrawal transaction...")
+      const res = await client.withdraw({
+        user: activeAddress!,
+        amount: amountMicro
+      }, {
+        extraFee: algokit.microAlgos(2000)
       })
 
+      console.log("[SakhiLend DEBUG] Withdrawal Successful. Hash:", res.transaction.txID())
       setTxStatus("success")
-      toast.success("Withdrawal successful! Funds sent to your wallet.")
+      triggerConfetti()
+      toast.success("Withdrawal successful!")
+      syncBalance()
       setTimeout(() => setIsModalOpen(false), 3000)
     } catch (e: any) {
-      console.error(e)
+      console.error("[SakhiLend DEBUG] Withdrawal Error:", e)
       setIsModalOpen(false)
       toast.error(`Withdrawal failed: ${e.message}`)
     } finally {

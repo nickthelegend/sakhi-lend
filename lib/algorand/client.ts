@@ -53,14 +53,20 @@ export const getAlgorandClient = () => {
 }
 
 export const getContractIds = () => {
-  if (process.env.NODE_ENV === 'production') {
-    return {
+  const isProd = process.env.NODE_ENV === 'production'
+  console.log(`[SakhiLend DEBUG] Resolving Contract IDs (Env: ${isProd ? 'Production' : 'Development'})`)
+  
+  if (isProd) {
+    const ids = {
       yieldVaultAppId: Number(process.env.NEXT_PUBLIC_YIELD_VAULT_APP_ID),
       loanPoolAppId: Number(process.env.NEXT_PUBLIC_LOAN_POOL_APP_ID),
       trustOracleAppId: Number(process.env.NEXT_PUBLIC_TRUST_ORACLE_APP_ID),
       usdcAssetId: Number(process.env.NEXT_PUBLIC_USDC_ASSET_ID),
     }
+    console.log("[SakhiLend DEBUG] Prod IDs:", ids)
+    return ids
   }
+  console.log("[SakhiLend DEBUG] LocalNet IDs:", localnetConfig)
   return {
     yieldVaultAppId: localnetConfig.yieldVaultAppId,
     loanPoolAppId: localnetConfig.loanPoolAppId,

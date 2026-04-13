@@ -106,27 +106,39 @@ export default function LoansPage() {
 
   const handleApply = async () => {
     if (!activeAddress) return
+    console.log("[SakhiLend DEBUG] Initiating Loan Request:", { amount: requestAmount, purpose: requestPurpose })
     setIsRequesting(true)
     setIsModalOpen(true)
     setTxStatus("signing")
     try {
       setTxStatus("confirming")
+      console.log("[SakhiLend DEBUG] Getting LoanPool client for:", activeAddress)
       const client = getLoanPoolClient(activeAddress)
       const amountMicro = BigInt(Math.floor(requestAmount * 1_000_000))
       const appAddress = algosdk.getApplicationAddress(BigInt(loanPoolAppId))
 
-      await client.send.requestLoan({
-        args: {
-          amount: amountMicro,
-          purpose: requestPurpose,
-          mbrPayment: {
-            sender: activeAddress,
-            receiver: appAddress,
-            amount: algokit.microAlgos(200_000), // Cover box and buffer
-          }
-        },
+      console.log("[SakhiLend DEBUG] Building MBR Payment Transaction...")
+      const algorand = getAlgorandClient()
+      const mbrPayment = await algorand.transactions.payment({
+        sender: activeAddress!,
+        receiver: appAddress,
+        amount: algokit.microAlgos(200_000), // MBR for loan box
+      })
+
+      console.log("[SakhiLend DEBUG] Sending requestLoan to contract...")
+      const res = await client.requestLoan({
+        amount: amountMicro,
+        purpose: requestPurpose,
+        mbrPayment
+      }, {
         extraFee: algokit.microAlgos(1000)
       })
+
+      console.log("[SakhiLend DEBUG] Loan Request Successful. ID:", res.transaction.txID())
+      
+      // Update MongoDB (local sync)
+      console.log("[SakhiLend DEBUG] Syncing loan request to MongoDB...")
+      // In a real app, we'd call an API here to ensure the story is linked to the txID
 
       setTxStatus("success")
       triggerConfetti()
@@ -165,21 +177,21 @@ export default function LoansPage() {
         suggestedParams: sp,
       })
 
-      await client.send.repayLoan({
-        args: {
-            loanId,
-            axfer
-        },
+      const res = await client.repayLoan({
+        loanId,
+        axfer
+      }, {
         extraFee: algokit.microAlgos(2000)
       })
 
+      console.log("[SakhiLend DEBUG] EMI Payment Successful. Hash:", res.transaction.txID())
       setTxStatus("success")
       triggerConfetti()
       toast.success("EMI payment confirmed!")
       syncLoans()
       setTimeout(() => setIsModalOpen(false), 3000)
     } catch (e: any) {
-      console.error(e)
+      console.error("[SakhiLend DEBUG] EMI Payment Error:", e)
       setIsModalOpen(false)
       toast.error(`Payment failed: ${e.message}`)
     }
