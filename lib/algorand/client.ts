@@ -3,9 +3,13 @@ import { YieldVaultFactory } from '../../contracts/YieldVaultClient'
 import { LoanPoolFactory } from '../../contracts/LoanPoolClient'
 import { TrustOracleFactory } from '../../contracts/TrustOracleClient'
 import localnetConfig from '../../contracts/localnet.json'
+import testnetConfig from '../../contracts/testnet.json'
 
 export const getAlgodConfig = () => {
-  if (process.env.NODE_ENV === 'production') {
+  // If we have Testnet ID, we probably want Testnet even in development for this stage
+  const isTestnet = !!testnetConfig.yieldVaultAppId && process.env.NEXT_PUBLIC_USE_LOCALNET !== 'true'
+  
+  if (process.env.NODE_ENV === 'production' || isTestnet) {
     return {
       server: process.env.NEXT_PUBLIC_ALGOD_SERVER || 'https://testnet-api.algonode.cloud',
       port: process.env.NEXT_PUBLIC_ALGOD_PORT || '443',
@@ -54,16 +58,18 @@ export const getAlgorandClient = () => {
 
 export const getContractIds = () => {
   const isProd = process.env.NODE_ENV === 'production'
-  console.log(`[SakhiLend DEBUG] Resolving Contract IDs (Env: ${isProd ? 'Production' : 'Development'})`)
+  const isTestnet = !!testnetConfig.yieldVaultAppId && process.env.NEXT_PUBLIC_USE_LOCALNET !== 'true'
   
-  if (isProd) {
+  console.log(`[SakhiLend DEBUG] Resolving Contract IDs (Env: ${isProd ? 'Production' : (isTestnet ? 'Testnet Fallback' : 'Development')})`)
+  
+  if (isProd || isTestnet) {
     const ids = {
-      yieldVaultAppId: Number(process.env.NEXT_PUBLIC_YIELD_VAULT_APP_ID),
-      loanPoolAppId: Number(process.env.NEXT_PUBLIC_LOAN_POOL_APP_ID),
-      trustOracleAppId: Number(process.env.NEXT_PUBLIC_TRUST_ORACLE_APP_ID),
-      usdcAssetId: Number(process.env.NEXT_PUBLIC_USDC_ASSET_ID),
+      yieldVaultAppId: Number(process.env.NEXT_PUBLIC_YIELD_VAULT_APP_ID || testnetConfig.yieldVaultAppId),
+      loanPoolAppId: Number(process.env.NEXT_PUBLIC_LOAN_POOL_APP_ID || testnetConfig.loanPoolAppId),
+      trustOracleAppId: Number(process.env.NEXT_PUBLIC_TRUST_ORACLE_APP_ID || testnetConfig.trustOracleAppId),
+      usdcAssetId: Number(process.env.NEXT_PUBLIC_USDC_ASSET_ID || testnetConfig.usdcAssetId),
     }
-    console.log("[SakhiLend DEBUG] Prod IDs:", ids)
+    console.log("[SakhiLend DEBUG] Active IDs:", ids)
     return ids
   }
   console.log("[SakhiLend DEBUG] LocalNet IDs:", localnetConfig)
