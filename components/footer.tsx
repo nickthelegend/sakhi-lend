@@ -1,5 +1,4 @@
 import Link from "next/link"
-import Image from "next/image"
 
 export function Footer() {
   return (
@@ -8,13 +7,9 @@ export function Footer() {
         <div className="grid gap-8 md:grid-cols-4">
           <div className="md:col-span-2">
             <Link href="/" className="mb-4 inline-block">
-              <Image 
-                src="/logo-sakhilend.png" 
-                alt="SakhiLend Logo" 
-                width={150} 
-                height={40} 
-                className="h-10 w-auto"
-              />
+              <span className="text-2xl font-semibold tracking-tight text-foreground">
+                Sakhi<span className="text-primary">lend</span>
+              </span>
             </Link>
             <p className="max-w-md text-sm text-muted-foreground leading-relaxed">
               Empowering women through accessible finance. A community-powered lending platform built on trust and transparency.

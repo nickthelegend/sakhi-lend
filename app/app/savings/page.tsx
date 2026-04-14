@@ -55,17 +55,32 @@ export default function DigiSavingsPage() {
 
     const syncBalance = async () => {
       try {
-        const algorandClient = getAlgorandClient()
-        const status = await algorandClient.client.algod.status().do()
+        const algorand = getAlgorandClient()
+        const status = await algorand.client.algod.status().do()
         setCurrentBlock(status['last-round'])
 
         const client = getYieldVaultClient(activeAddress!)
-        const balanceRes = await client.send.getBalance({ args: { user: activeAddress! } })
-        const val = Number(balanceRes.return) / 1_000_000
+        const userBytes = algosdk.decodeAddress(activeAddress!).publicKey
+        
+        // Use simulation for reading balance - prevents wallet popup every 10s
+        // We must provide box references for the contract to read the user's data
+        const simRes = await algorand.newGroup()
+          .addAppCallMethodCall(client.params.getBalance({ 
+            args: { user: activeAddress! },
+            boxReferences: [
+              { appId: BigInt(yieldVaultAppId), name: new Uint8Array([100, ...userBytes]) }, // Box 'd'
+              { appId: BigInt(yieldVaultAppId), name: new Uint8Array([98, ...userBytes]) }   // Box 'b'
+            ]
+          }))
+          .simulate()
+
+        const val = Number(simRes.returns![0]) / 1_000_000
+        console.log(`[SakhiLend DEBUG] Synced Balance: ${val} (Block: ${status['last-round']})`)
+        
         setRealBalance(val)
         if (val > 0) setIsDeposited(true)
       } catch (e) {
-        console.error("Failed to sync balance:", e)
+        console.error("[SakhiLend DEBUG] Failed to sync balance:", e)
       }
     }
 
@@ -107,33 +122,50 @@ export default function DigiSavingsPage() {
       const appAddress = client.appAddress
       
       let res;
+      // Robust check: if balance > 0, we already have an account
       if (realBalance === 0 && !isDeposited) {
-        // First time: MBR payment required
-        const BOX_MBR = 128_500
-        const totalMBR = BOX_MBR * 2 + 100_000 // boxes + asset opt-in MBR
-        
-        console.log("[SakhiLend DEBUG] Performing First Deposit (with MBR)...")
-        
-        const axfer = await algorand.createTransaction.assetTransfer({
-          sender: activeAddress,
-          receiver: appAddress,
-          assetId: BigInt(usdcAssetId),
-          amount: amountMicro,
-        })
+        try {
+          // First time: MBR payment required
+          const BOX_MBR = 128_500
+          const totalMBR = BOX_MBR * 2 + 100_000 // boxes + asset opt-in MBR
+          
+          console.log("[SakhiLend DEBUG] Attempting First Deposit (with MBR)...")
+          
+          const axfer = await algorand.createTransaction.assetTransfer({
+            sender: activeAddress,
+            receiver: appAddress,
+            assetId: BigInt(usdcAssetId),
+            amount: amountMicro,
+          })
 
-        const mbrPayment = await algorand.createTransaction.payment({
-          sender: activeAddress,
-          receiver: appAddress,
-          amount: algokit.microAlgos(totalMBR),
-        })
+          const mbrPayment = await algorand.createTransaction.payment({
+            sender: activeAddress,
+            receiver: appAddress,
+            amount: algokit.microAlgos(totalMBR),
+          })
 
-        res = await client.send.depositFirst({
-          args: {
-            axfer,
-            mbrPayment,
-          },
-          extraFee: algokit.microAlgos(1000)
-        })
+          res = await client.send.depositFirst({
+            args: { axfer, mbrPayment },
+            extraFee: algokit.microAlgos(1000)
+          })
+        } catch (e: any) {
+          // Fallback: if user already exists (maybe sync lagged), try depositMore
+          if (e.message?.includes("User already exists")) {
+            console.log("[SakhiLend DEBUG] User already exists on-chain. Falling back to Deposit More...")
+            const axfer = await algorand.createTransaction.assetTransfer({
+              sender: activeAddress,
+              receiver: appAddress,
+              assetId: BigInt(usdcAssetId),
+              amount: amountMicro,
+            })
+            res = await client.send.depositMore({
+              args: { axfer },
+              extraFee: algokit.microAlgos(2000)
+            })
+          } else {
+            throw e
+          }
+        }
       } else {
         console.log("[SakhiLend DEBUG] Performing Deposit More...")
         const axfer = await algorand.createTransaction.assetTransfer({

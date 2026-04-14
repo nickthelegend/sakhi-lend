@@ -14,21 +14,8 @@ export const metadata: Metadata = {
   description: 'A community-powered lending and savings platform designed to empower women with accessible credit and meaningful returns.',
   generator: 'v0.app',
   icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
+    icon: '/logo-sakhilend.png',
+    apple: '/logo-sakhilend.png',
   },
 }
 
