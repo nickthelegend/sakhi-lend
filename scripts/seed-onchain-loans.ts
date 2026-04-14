@@ -56,17 +56,23 @@ async function seed() {
       defaultSigner: account.signer
     }).getAppClientById({ appId: poolAppId })
 
-    await poolClient.send.requestLoan({
-      args: {
-        amount: BigInt(b.amt * 1_000_000),
-        purpose: b.business,
-        mbrPayment: {
-          sender: account.addr,
-          receiver: poolAddress,
-          amount: algokit.microAlgos(250_000)
+    try {
+      const mbrTxn = await algorand.createTransaction.payment({
+        sender: account.addr,
+        receiver: poolAddress,
+        amount: algokit.microAlgos(250_000)
+      })
+      await poolClient.send.requestLoan({
+        args: {
+          amount: BigInt(b.amt * 1_000_000),
+          purpose: b.business,
+          mbrPayment: mbrTxn
         }
-      }
-    })
+      })
+    } catch (e: any) {
+      console.error('requestLoan failed:', e.message)
+      throw e
+    }
 
     const state = await poolClient.appClient.getGlobalState()
     const loanId = Number(state.loanCounter?.value || 0)

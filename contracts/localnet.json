@@ -1,7 +1,7 @@
 {
-  "trustOracleAppId": 1004,
-  "yieldVaultAppId": 1006,
-  "loanPoolAppId": 1015,
-  "usdcAssetId": 1023,
-  "creatorAddress": "S6MCEVCQXBA55VQLVF4PST7L7FDKSR2FB23X323EBESYGOI4K7EMWFTBHM"
+  "trustOracleAppId": 1036,
+  "yieldVaultAppId": 1038,
+  "loanPoolAppId": 1042,
+  "usdcAssetId": 1037,
+  "creatorAddress": "JNLYAHL5LGYEACUJK7OTEMARMGX2NL6WC4CPMM2KQQWOCPIWPXUHJFMFYU"
 }

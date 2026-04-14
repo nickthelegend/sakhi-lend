@@ -14,6 +14,7 @@ import { useAlgorandSigner } from "@/hooks/use-algorand-signer"
 import { useWallet } from "@txnlab/use-wallet-react"
 import { getLoanPoolClient, getContractIds } from "@/lib/algorand/client"
 import * as algokit from "@algorandfoundation/algokit-utils"
+import * as algosdk from "algosdk"
 import { toast } from "sonner"
 import { TxLoadingModal } from "@/components/tx-loading-modal"
 import { triggerConfetti } from "@/lib/utils"
@@ -63,19 +64,25 @@ export default function LoansPage() {
       const client = getLoanPoolClient(activeAddress)
       const { loanPoolAppId } = getContractIds()
       
-      const loanAmountMicro = BigInt(formData.loanAmount * 1_000_000)
+      const usdcAmount = Math.max(1, Math.floor(formData.loanAmount / 84))
+      const loanAmountMicro = BigInt(usdcAmount * 1_000_000)
       const MBR_PAYMENT = 200_000
       
       // 1. On-Chain Request
       setTxStatus("confirming")
       console.log("[SakhiLend DEBUG] Requesting loan on-chain...")
-      await client.requestLoan({
-        amount: loanAmountMicro,
-        purpose: formData.businessName,
-        mbrPayment: {
-          sender: activeAddress,
-          receiver: algokit.getApplicationAddress(BigInt(loanPoolAppId)),
-          amount: algokit.microAlgos(MBR_PAYMENT)
+      const algorand = algokit.AlgorandClient.defaultLocalNet()
+      const mbrTxn = await algorand.createTransaction.payment({
+        sender: activeAddress,
+        receiver: algosdk.getApplicationAddress(BigInt(loanPoolAppId)),
+        amount: algokit.microAlgos(MBR_PAYMENT)
+      })
+
+      await client.send.requestLoan({
+        args: {
+          amount: loanAmountMicro,
+          purpose: formData.businessName,
+          mbrPayment: mbrTxn
         }
       })
 
@@ -94,7 +101,7 @@ export default function LoansPage() {
           businessName: formData.businessName,
           story: formData.story,
           businessCategory: formData.businessCategory,
-          loanAmount: formData.loanAmount,
+          loanAmount: usdcAmount,
           mannDeshiScore: 700 + Math.floor(Math.random() * 200), // Mock score
           photoUrl: "/images/impact-woman.jpg"
         })
@@ -176,11 +183,11 @@ export default function LoansPage() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Amount ($ USDC)</label>
+                      <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Amount (₹ INR)</label>
                       <Input 
                         type="number" 
-                        min="50" 
-                        max="500" 
+                        min="4000" 
+                        max="42000" 
                         required 
                         className="rounded-xl border-border/50 bg-background/50"
                         value={formData.loanAmount}
@@ -219,7 +226,7 @@ export default function LoansPage() {
                 <Card className="bg-primary/5 border-primary/20 shadow-sm">
                   <CardContent className="p-6 text-center">
                     <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Total Borrowed</p>
-                    <p className="text-3xl font-black text-foreground">${loans.reduce((acc, curr) => acc + (curr.loanAmount || 0), 0)}</p>
+                    <p className="text-3xl font-black text-foreground">₹{(loans.reduce((acc, curr) => acc + (curr.loanAmount || 0), 0) * 84).toLocaleString()}</p>
                   </CardContent>
                 </Card>
                 <Card className="border-border/50">
@@ -274,7 +281,7 @@ export default function LoansPage() {
                         <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
                           <div className="space-y-1">
                             <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Amount</p>
-                            <p className="text-2xl font-black text-foreground">${loan.loanAmount?.toLocaleString()}</p>
+                            <p className="text-2xl font-black text-foreground">₹{(loan.loanAmount * 84)?.toLocaleString()}</p>
                           </div>
                           <div className="space-y-1 col-span-2">
                             <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Narrative</p>

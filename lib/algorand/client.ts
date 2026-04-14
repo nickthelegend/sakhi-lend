@@ -1,7 +1,7 @@
 import * as algokit from '@algorandfoundation/algokit-utils'
-import { YieldVaultClient } from '../../contracts/YieldVaultClient'
-import { LoanPoolClient } from '../../contracts/LoanPoolClient'
-import { TrustOracleClient } from '../../contracts/TrustOracleClient'
+import { YieldVaultFactory } from '../../contracts/YieldVaultClient'
+import { LoanPoolFactory } from '../../contracts/LoanPoolClient'
+import { TrustOracleFactory } from '../../contracts/TrustOracleClient'
 import localnetConfig from '../../contracts/localnet.json'
 
 export const getAlgodConfig = () => {
@@ -79,36 +79,24 @@ export const getContractIds = () => {
 
 export const getYieldVaultClient = (sender?: string) => {
   const { yieldVaultAppId } = getContractIds()
-  return new YieldVaultClient(
-    {
-      resolveBy: 'id',
-      id: BigInt(yieldVaultAppId),
-      sender,
-    },
-    getAlgorandClient().client.algod
-  )
+  return new YieldVaultFactory({
+    algorand: getAlgorandClient(),
+    defaultSender: sender,
+  }).getAppClientById({ appId: BigInt(yieldVaultAppId) })
 }
 
 export const getLoanPoolClient = (sender?: string) => {
   const { loanPoolAppId } = getContractIds()
-  return new LoanPoolClient(
-    {
-      resolveBy: 'id',
-      id: BigInt(loanPoolAppId),
-      sender,
-    },
-    getAlgorandClient().client.algod
-  )
+  return new LoanPoolFactory({
+    algorand: getAlgorandClient(),
+    defaultSender: sender,
+  }).getAppClientById({ appId: BigInt(loanPoolAppId) })
 }
 
 export const getTrustOracleClient = (sender?: string) => {
   const { trustOracleAppId } = getContractIds()
-  return new TrustOracleClient(
-    {
-      resolveBy: 'id',
-      id: BigInt(trustOracleAppId),
-      sender,
-    },
-    getAlgorandClient().client.algod
-  )
+  return new TrustOracleFactory({
+    algorand: getAlgorandClient(),
+    defaultSender: sender,
+  }).getAppClientById({ appId: BigInt(trustOracleAppId) })
 }
