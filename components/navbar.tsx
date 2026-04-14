@@ -37,29 +37,19 @@ export function Navbar() {
         
         {/* Desktop Navigation */}
         <nav className="hidden items-center gap-8 md:flex">
-          <Link
-            href="/"
-            className={cn(
-              "flex items-center gap-2 text-sm font-medium transition-colors hover:text-primary",
-              isActive("/") && pathname === "/" ? "text-primary" : "text-muted-foreground"
-            )}
-          >
-            <Home className="h-4 w-4" />
-            Home
-          </Link>
-          <Link
-            href="/#about"
-            className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
-          >
-            About
-          </Link>
-          <Link
-            href="/#contact"
-            className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
-          >
-            Contact
-          </Link>
-
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={cn(
+                "flex items-center gap-2 text-sm font-medium transition-colors hover:text-primary",
+                isActive(link.href) ? "text-primary" : "text-muted-foreground"
+              )}
+            >
+              {link.icon && <link.icon className="h-4 w-4" />}
+              {link.label}
+            </Link>
+          ))}
         </nav>
 
         {/* Desktop CTA Buttons */}

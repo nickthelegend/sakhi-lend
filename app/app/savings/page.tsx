@@ -107,12 +107,13 @@ export default function DigiSavingsPage() {
         receiver: appAddress,
       }
 
+      let res;
       if (realBalance === 0 && !isDeposited) {
         // First time: MBR payment required
         const BOX_MBR = 128_500
         const totalMBR = BOX_MBR * 2 + 100_000 // boxes + asset opt-in MBR
         
-        await client.send.depositFirst({
+        res = await client.send.depositFirst({
           args: {
             axfer,
             mbrPayment: {
@@ -124,8 +125,12 @@ export default function DigiSavingsPage() {
           extraFee: algokit.microAlgos(1000)
         })
       } else {
-        extraFee: algokit.microAlgos(2000)
-      })
+        res = await client.send.deposit({
+          args: { axfer }
+        }, {
+          extraFee: algokit.microAlgos(2000)
+        })
+      }
       
       console.log("[SakhiLend DEBUG] Deposit Successful. Hash:", res.transaction.txID())
       setTxStatus("success")
@@ -144,7 +149,7 @@ export default function DigiSavingsPage() {
 
   const handleWithdraw = async () => {
     if (!activeAddress) return
-    console.log("[SakhiLend DEBUG] Initiating Withdrawal:", amount)
+    console.log("[SakhiLend DEBUG] Initiating Withdrawal of full balance:", realBalance)
     setIsLoading(true)
     setIsModalOpen(true)
     setTxStatus("signing")
@@ -152,7 +157,7 @@ export default function DigiSavingsPage() {
       setTxStatus("confirming")
       console.log("[SakhiLend DEBUG] Getting YieldVault client for:", activeAddress)
       const client = getYieldVaultClient(activeAddress)
-      const amountMicro = BigInt(Math.floor(amount * 1_000_000))
+      const amountMicro = BigInt(Math.floor(realBalance * 1_000_000))
       
       console.log("[SakhiLend DEBUG] Preparing withdrawal transaction...")
       const res = await client.withdraw({

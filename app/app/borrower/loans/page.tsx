@@ -5,351 +5,301 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { BeneficiarySidebar } from "@/components/beneficiary-sidebar"
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import {
-  Wallet,
-  Plus,
-  CheckCircle,
-  Clock,
-} from "lucide-react"
-import { useAlgorandSigner } from "@/hooks/use-algorand-signer"
-import { getLoanPoolClient, getContractIds, getAlgorandClient } from "@/lib/algorand/client"
-import algosdk from "algosdk"
+import { Textarea } from "@/components/ui/textarea"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { BeneficiarySidebar } from "@/components/beneficiary-sidebar"
+import { Wallet, Plus, CheckCircle, Clock, AlertCircle } from "lucide-react"
+import { useWallet } from "@txnlab/use-wallet-react"
+import { getLoanPoolClient, getContractIds } from "@/lib/algorand/client"
 import * as algokit from "@algorandfoundation/algokit-utils"
 import { toast } from "sonner"
-import { useUserSync } from "@/hooks/use-user-sync"
 import { TxLoadingModal } from "@/components/tx-loading-modal"
 import { triggerConfetti } from "@/lib/utils"
 
 export default function LoansPage() {
-  const { activeAddress } = useAlgorandSigner()
-  useUserSync() // Automatically sync profile to MongoDB
-  const [realLoans, setRealLoans] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [stats, setStats] = useState({ totalBorrowed: 0, totalRepaid: 0, outstanding: 0 })
-  const [isRequesting, setIsRequesting] = useState(false)
-  const [requestAmount, setRequestAmount] = useState(100)
-  const [requestPurpose, setRequestPurpose] = useState("Business Expansion")
-  const [txStatus, setTxStatus] = useState<"signing" | "confirming" | "success">("signing")
+  const { activeAddress } = useWallet()
+  const [loans, setLoans] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const { loanPoolAppId, usdcAssetId } = getContractIds()
-  const INR_USDC_RATE = 84.50
-
-  const syncLoans = async () => {
-    if (!activeAddress) return
-    try {
-      const client = getLoanPoolClient(activeAddress)
-      const globalState = await client.appClient.getGlobalState()
-      
-      const issued = Number(globalState.totalLoansIssued?.value ?? 0) / 1_000_000
-      const repaid = Number(globalState.totalRepaid?.value ?? 0) / 1_000_000
-      
-      setStats({
-        totalBorrowed: issued * INR_USDC_RATE,
-        totalRepaid: repaid * INR_USDC_RATE,
-        outstanding: (issued - repaid) * INR_USDC_RATE
-      })
-
-      // Fetch active loan ID for user
-      try {
-        const userLoanId = await client.appClient.getBoxValueFromMap("userLoans", activeAddress)
-        if (userLoanId && Number(userLoanId) !== 0) {
-          const loanData = await client.appClient.getBoxValueFromMap("loans", userLoanId) as any
-          
-          if (loanData) {
-            // Fetch rich metadata from MongoDB
-            let meta = { story: loanData.purpose, photoUrl: null }
-            try {
-              const metaRes = await fetch(`/api/loans/${userLoanId}`)
-              if (metaRes.ok) meta = await metaRes.json()
-            } catch (e) { console.warn("Metadata not found in DB") }
-
-            setRealLoans([{
-              id: `LP-${userLoanId}`,
-              amount: Number(loanData.amount) / 1_000_000,
-              purpose: meta.story, // Use story from MongoDB
-              photoUrl: meta.photoUrl,
-              status: Number(loanData.status) === 3 ? "completed" : "active",
-              repaid: Number(loanData.amountRepaid) / 1_000_000,
-              emi: (Number(loanData.amount) / 1_000_000) * 0.1, // Simulated 10% EMI
-              nextDue: "15 Apr 2026",
-              startDate: new Date(Number(loanData.requestedAt) * 1000).toLocaleDateString()
-            }])
-          }
-        } else {
-          setRealLoans([])
-        }
-      } catch (e) {
-        console.warn("No active loan box found for user")
-        setRealLoans([])
-      }
-      }
-    } catch (e) {
-      console.error("Sync failed:", e)
-    }
-  }
+  const [txStatus, setTxStatus] = useState<"signing" | "confirming" | "success">("signing")
+  const [isTxModalOpen, setIsTxModalOpen] = useState(false)
+  
+  // Form State
+  const [formData, setFormData] = useState({
+    borrowerName: "",
+    businessName: "",
+    story: "",
+    businessCategory: "Retail",
+    loanAmount: 50
+  })
 
   useEffect(() => {
-    syncLoans()
+    fetchMyLoans()
   }, [activeAddress])
 
-  const handleApply = async () => {
+  const fetchMyLoans = async () => {
     if (!activeAddress) return
-    console.log("[SakhiLend DEBUG] Initiating Loan Request:", { amount: requestAmount, purpose: requestPurpose })
-    setIsRequesting(true)
-    setIsModalOpen(true)
-    setTxStatus("signing")
     try {
-      setTxStatus("confirming")
-      console.log("[SakhiLend DEBUG] Getting LoanPool client for:", activeAddress)
+      const res = await fetch(`/api/loans?address=${activeAddress}`)
+      const data = await res.json()
+      setLoans(data)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleApply = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!activeAddress) return
+
+    setIsTxModalOpen(true)
+    setTxStatus("signing")
+    
+    try {
       const client = getLoanPoolClient(activeAddress)
-      const amountMicro = BigInt(Math.floor(requestAmount * 1_000_000))
-      const appAddress = algosdk.getApplicationAddress(BigInt(loanPoolAppId))
-
-      console.log("[SakhiLend DEBUG] Building MBR Payment Transaction...")
-      const algorand = getAlgorandClient()
-      const mbrPayment = await algorand.transactions.payment({
-        sender: activeAddress!,
-        receiver: appAddress,
-        amount: algokit.microAlgos(200_000), // MBR for loan box
-      })
-
-      console.log("[SakhiLend DEBUG] Sending requestLoan to contract...")
-      const res = await client.requestLoan({
-        amount: amountMicro,
-        purpose: requestPurpose,
-        mbrPayment
-      }, {
-        extraFee: algokit.microAlgos(1000)
-      })
-
-      console.log("[SakhiLend DEBUG] Loan Request Successful. ID:", res.transaction.txID())
+      const { loanPoolAppId } = getContractIds()
       
-      // Update MongoDB (local sync)
-      console.log("[SakhiLend DEBUG] Syncing loan request to MongoDB...")
-      // In a real app, we'd call an API here to ensure the story is linked to the txID
+      const loanAmountMicro = BigInt(formData.loanAmount * 1_000_000)
+      const MBR_PAYMENT = 200_000
+      
+      // 1. On-Chain Request
+      setTxStatus("confirming")
+      console.log("[SakhiLend DEBUG] Requesting loan on-chain...")
+      await client.requestLoan({
+        amount: loanAmountMicro,
+        purpose: formData.businessName,
+        mbrPayment: {
+          sender: activeAddress,
+          receiver: algokit.getApplicationAddress(BigInt(loanPoolAppId)),
+          amount: algokit.microAlgos(MBR_PAYMENT)
+        }
+      })
+
+      // Get Loan ID from global state
+      const status = await client.appClient.getGlobalState()
+      const loanId = Number(status.loanCounter?.value || 0)
+
+      // 2. MongoDB Sync
+      console.log("[SakhiLend DEBUG] Syncing loan metadata to MongoDB. Loan ID:", loanId)
+      await fetch("/api/loans/create", {
+        method: "POST",
+        body: JSON.stringify({
+          loanId: String(loanId),
+          borrowerAddress: activeAddress,
+          borrowerName: formData.borrowerName,
+          businessName: formData.businessName,
+          story: formData.story,
+          businessCategory: formData.businessCategory,
+          loanAmount: formData.loanAmount,
+          mannDeshiScore: 700 + Math.floor(Math.random() * 200), // Mock score
+          photoUrl: "/images/impact-woman.jpg"
+        })
+      })
 
       setTxStatus("success")
       triggerConfetti()
-      toast.success("Loan request submitted! Waiting for admin approval.")
-      syncLoans()
-      setTimeout(() => setIsModalOpen(false), 3000)
+      toast.success("Loan application submitted!")
+      setIsModalOpen(false)
+      fetchMyLoans()
+      setTimeout(() => setIsTxModalOpen(false), 3000)
     } catch (e: any) {
       console.error(e)
-      setIsModalOpen(false)
-      toast.error(`Request failed: ${e.message}`)
-    } finally {
-      setIsRequesting(false)
+      setIsTxModalOpen(false)
+      toast.error(`Application failed: ${e.message}`)
     }
   }
 
-  const handlePayEMI = async (loanIdStr: string) => {
-    if (!activeAddress) return
-    const loanId = BigInt(loanIdStr.replace("LP-", ""))
-    const amountToPay = 10 // Example EMI amount in USDC
-    const amountMicro = BigInt(amountToPay * 1_000_000)
-    
-    setIsModalOpen(true)
-    setTxStatus("signing")
-    
-    try {
-      setTxStatus("confirming")
-      const client = getLoanPoolClient(activeAddress)
-      const algorand = getAlgorandClient()
-      const sp = await algorand.client.algod.getTransactionParams().do()
-      
-      const axfer = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
-        from: activeAddress,
-        to: algosdk.getApplicationAddress(BigInt(loanPoolAppId)),
-        assetIndex: BigInt(usdcAssetId),
-        amount: amountMicro,
-        suggestedParams: sp,
-      })
-
-      const res = await client.repayLoan({
-        loanId,
-        axfer
-      }, {
-        extraFee: algokit.microAlgos(2000)
-      })
-
-      console.log("[SakhiLend DEBUG] EMI Payment Successful. Hash:", res.transaction.txID())
-      setTxStatus("success")
-      triggerConfetti()
-      toast.success("EMI payment confirmed!")
-      syncLoans()
-      setTimeout(() => setIsModalOpen(false), 3000)
-    } catch (e: any) {
-      console.error("[SakhiLend DEBUG] EMI Payment Error:", e)
-      setIsModalOpen(false)
-      toast.error(`Payment failed: ${e.message}`)
-    }
-  }
-
-  const displayLoans = realLoans.length > 0 ? realLoans : [
-    {
-        id: "MOCK",
-        amount: 0,
-        purpose: "No active loans",
-        status: "none",
-        repaid: 0,
-        emi: 0,
-        nextDue: "-",
-        startDate: "-"
-    }
-  ]
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-background text-foreground">
       <BeneficiarySidebar />
 
       <main className="flex-1">
         <header className="border-b border-border bg-card px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="ml-12 lg:ml-0">
-              <h1 className="text-2xl font-bold text-foreground">My Loans</h1>
-              <p className="text-sm text-muted-foreground">Manage your loan applications and payments</p>
+              <h1 className="text-2xl font-bold font-display tracking-tight text-foreground">My Loans</h1>
+              <p className="text-sm text-muted-foreground font-medium">Manage your microloan applications</p>
             </div>
-            <Dialog>
+
+            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
               <DialogTrigger asChild>
-                <Button className="gap-2 rounded-full">
+                <Button className="gap-2 rounded-xl shadow-lg shadow-primary/20">
                   <Plus className="h-4 w-4" />
                   Apply for Loan
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
+              <DialogContent className="sm:max-w-[500px] border-primary/20 bg-card/95 backdrop-blur-xl">
                 <DialogHeader>
-                  <DialogTitle>Request New Loan</DialogTitle>
-                  <DialogDescription>
-                    Apply for a microloan in USDC. Amount is converted to INR in dashboard.
+                  <DialogTitle className="text-2xl font-black">Apply for Microloan</DialogTitle>
+                  <DialogDescription className="text-base">
+                    Tell us your story. Empower your business.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="amount" className="text-right">Amount (USDC)</Label>
-                    <Input id="amount" type="number" value={requestAmount} onChange={(e) => setRequestAmount(Number(e.target.value))} className="col-span-3" />
+                <form onSubmit={handleApply} className="space-y-6 pt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Name</label>
+                      <Input 
+                        placeholder="Savitri Bai" 
+                        required 
+                        className="rounded-xl border-border/50 bg-background/50"
+                        value={formData.borrowerName}
+                        onChange={e => setFormData({...formData, borrowerName: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Business Name</label>
+                      <Input 
+                        placeholder="Sakhi Poultry" 
+                        required 
+                        className="rounded-xl border-border/50 bg-background/50"
+                        value={formData.businessName}
+                        onChange={e => setFormData({...formData, businessName: e.target.value})}
+                      />
+                    </div>
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="purpose" className="text-right">Purpose</Label>
-                    <Input id="purpose" value={requestPurpose} onChange={(e) => setRequestPurpose(e.target.value)} className="col-span-3" />
+                  
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Story & Purpose</label>
+                    <Textarea 
+                      placeholder="I want to expand my poultry farm to support 10 more families..." 
+                      className="min-h-[100px] rounded-xl border-border/50 bg-background/50"
+                      required
+                      value={formData.story}
+                      onChange={e => setFormData({...formData, story: e.target.value})}
+                    />
                   </div>
-                </div>
-                <DialogFooter>
-                  <Button onClick={handleApply} disabled={isRequesting}>
-                    {isRequesting ? "Submitting..." : "Submit Application"}
-                  </Button>
-                </DialogFooter>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Amount ($ USDC)</label>
+                      <Input 
+                        type="number" 
+                        min="50" 
+                        max="500" 
+                        required 
+                        className="rounded-xl border-border/50 bg-background/50"
+                        value={formData.loanAmount}
+                        onChange={e => setFormData({...formData, loanAmount: Number(e.target.value)})}
+                      />
+                    </div>
+                    <div className="space-y-2 flex flex-col justify-end">
+                      <Button type="submit" className="w-full rounded-xl h-11 font-bold shadow-xl shadow-primary/20 transition-all active:scale-95 text-primary-foreground">
+                        Submit Application
+                      </Button>
+                    </div>
+                  </div>
+                </form>
               </DialogContent>
             </Dialog>
           </div>
         </header>
 
-        <div className="p-6">
-          <div className="mb-6 grid gap-4 sm:grid-cols-3">
-            <Card>
-              <CardContent className="p-6 text-center">
-                <p className="text-sm text-muted-foreground">Total Borrowed</p>
-                <p className="text-3xl font-bold text-foreground">₹{stats.totalBorrowed.toLocaleString()}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6 text-center">
-                <p className="text-sm text-muted-foreground">Total Repaid</p>
-                <p className="text-3xl font-bold text-chart-2">₹{stats.totalRepaid.toLocaleString()}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6 text-center">
-                <p className="text-sm text-muted-foreground">Outstanding</p>
-                <p className="text-3xl font-bold text-primary">₹{stats.outstanding.toLocaleString()}</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Loan History</CardTitle>
-              <CardDescription>View all your loans</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {displayLoans.map((loan) => (
-                  <div key={loan.id} className="rounded-xl border border-border p-6">
-                    <div className="mb-4 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
-                          loan.status === "active" ? "bg-primary/10" : "bg-chart-2/20"
-                        }`}>
-                          {loan.status === "active" ? (
-                            <Clock className="h-5 w-5 text-primary" />
-                          ) : (
-                            <CheckCircle className="h-5 w-5 text-chart-2" />
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-medium text-foreground">{loan.purpose}</p>
-                          <p className="text-sm text-muted-foreground">ID: {loan.id}</p>
-                        </div>
-                      </div>
-                      <Badge variant={loan.status === "active" ? "default" : "secondary"}>
-                        {loan.status === "active" ? "Active" : "Completed"}
-                      </Badge>
-                    </div>
-
-                    <div className="mb-4">
-                      <div className="mb-2 flex justify-between text-sm">
-                        <span className="text-muted-foreground">Repayment Progress</span>
-                        <span className="font-medium">{Math.round((loan.repaid / loan.amount) * 100)}%</span>
-                      </div>
-                      <Progress value={(loan.repaid / loan.amount) * 100} className="h-2" />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
-                      <div>
-                        <p className="text-muted-foreground">Loan Amount</p>
-                        <p className="font-medium text-foreground">₹{loan.amount.toLocaleString()}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Repaid</p>
-                        <p className="font-medium text-chart-2">₹{loan.repaid.toLocaleString()}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Monthly EMI</p>
-                        <p className="font-medium text-foreground">₹{loan.emi.toLocaleString() || "-"}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Next Due</p>
-                        <p className="font-medium text-foreground">{loan.nextDue}</p>
-                      </div>
-                    </div>
-
-                    {loan.status === "active" && (
-                      <div className="mt-4 flex gap-3">
-                        <Button size="sm" onClick={() => handlePayEMI(loan.id)}>Pay EMI</Button>
-                        <Button size="sm" variant="outline">View Details</Button>
-                      </div>
-                    )}
-                  </div>
-                ))}
+        <div className="p-6 text-foreground">
+          {loading ? (
+             <div className="flex h-64 items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+             </div>
+          ) : loans.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="bg-primary/5 p-6 rounded-full mb-4">
+                <AlertCircle className="w-12 h-12 text-primary opacity-50" />
               </div>
-            </CardContent>
-          </Card>
+              <h3 className="text-xl font-bold mb-1">No Loans Found</h3>
+              <p className="text-muted-foreground mb-6">You haven't applied for any microloans yet.</p>
+              <Button onClick={() => setIsModalOpen(true)} variant="link" className="font-bold underline text-primary">Apply for your first loan</Button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Card className="bg-primary/5 border-primary/20 shadow-sm">
+                  <CardContent className="p-6 text-center">
+                    <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Total Borrowed</p>
+                    <p className="text-3xl font-black text-foreground">${loans.reduce((acc, curr) => acc + (curr.loanAmount || 0), 0)}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-border/50">
+                  <CardContent className="p-6 text-center">
+                    <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Active Loans</p>
+                    <p className="text-3xl font-black text-green-500">{loans.filter(l => l.status === 'active').length}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-border/50">
+                  <CardContent className="p-6 text-center">
+                    <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Pending Approval</p>
+                    <p className="text-3xl font-black text-primary">{loans.filter(l => l.status === 'pending').length}</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card className="border-border/50 shadow-sm overflow-hidden bg-card">
+                <CardHeader className="bg-muted/30 pb-4">
+                  <CardTitle className="text-xl font-black text-foreground">Loan History</CardTitle>
+                  <CardDescription className="text-sm font-medium">Real-time tracking of your on-chain debt</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y divide-border">
+                    {loans.map((loan) => (
+                      <div key={loan._id} className="p-6 transition-all hover:bg-accent/5 tracking-tight group">
+                        <div className="mb-6 flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className={`flex h-12 w-12 items-center justify-center rounded-2xl shadow-sm transition-transform group-hover:scale-110 ${
+                              loan.status === "active" ? "bg-green-500/20 text-green-500" : "bg-primary/20 text-primary"
+                            }`}>
+                              {loan.status === "active" ? (
+                                <CheckCircle className="h-6 w-6" />
+                              ) : (
+                                <Clock className="h-6 w-6" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-lg font-black text-foreground uppercase tracking-tight">{loan.businessName}</p>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-[10px] font-mono border-muted-foreground/30 text-muted-foreground">ID: {loan.loanId}</Badge>
+                                <span className="text-xs font-bold text-muted-foreground">• {new Date(loan.createdAt).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <Badge variant={loan.status === "active" ? "secondary" : "default"} className={`rounded-full px-4 py-1 font-bold ${
+                            loan.status === 'active' ? 'bg-green-500/10 text-green-500' : ''
+                          }`}>
+                            {loan.status.toUpperCase()}
+                          </Badge>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
+                          <div className="space-y-1">
+                            <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Amount</p>
+                            <p className="text-2xl font-black text-foreground">${loan.loanAmount?.toLocaleString()}</p>
+                          </div>
+                          <div className="space-y-1 col-span-2">
+                            <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Narrative</p>
+                            <p className="text-sm text-foreground/80 font-medium italic">"{loan.story}"</p>
+                          </div>
+                          <div className="flex items-center justify-end">
+                             {loan.status === 'active' && (
+                               <Button size="sm" className="rounded-xl font-bold bg-green-500 hover:bg-green-600 shadow-lg shadow-green-500/20 text-white">
+                                 Pay Installment
+                               </Button>
+                             )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
 
         <TxLoadingModal 
-          isOpen={isModalOpen} 
+          isOpen={isTxModalOpen} 
           status={txStatus} 
-          message={txStatus === "success" ? "Wonderful! Your transaction is complete." : undefined}
+          message={txStatus === "success" ? "Great! Your loan application is recorded on the Algorand blockchain." : undefined}
         />
       </main>
     </div>

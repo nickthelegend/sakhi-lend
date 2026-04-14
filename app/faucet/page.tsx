@@ -1,155 +1,163 @@
 "use client"
 
 import { useState } from "react"
-import { Navbar } from "@/components/navbar"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Navbar } from "@/components/navbar"
+import { Footer } from "@/components/footer"
+import { Droplets, Coins, CheckCircle2, AlertCircle } from "lucide-react"
 import { useWallet } from "@txnlab/use-wallet-react"
-import { useAlgorandSigner } from "@/hooks/use-algorand-signer"
 import { getAlgorandClient, getContractIds } from "@/lib/algorand/client"
-import { Droplet, ExternalLink, Zap, ShieldCheck } from "lucide-react"
-import algosdk from "algosdk"
 import { toast } from "sonner"
 
 export default function FaucetPage() {
-  const { activeAddress } = useAlgorandSigner()
-  const { transactionSigner } = useWallet()
-  const [isLoading, setIsLoading] = useState(false)
+  const { activeAddress, signer } = useWallet()
+  const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
+  
   const { usdcAssetId } = getContractIds()
 
   const handleOptIn = async () => {
     if (!activeAddress) {
-      toast.error("Please connect your wallet first")
+      toast.error("Please connect your wallet")
       return
     }
 
-    setIsLoading(true)
+    setLoading(true)
     try {
       const algorand = getAlgorandClient()
-      toast.info("Opening USDC asset opt-in...")
       
-      const sp = await algorand.client.algod.getTransactionParams().do()
-      const optInTxn = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
-        from: activeAddress,
-        to: activeAddress,
-        assetIndex: BigInt(usdcAssetId),
-        amount: 0,
-        suggestedParams: sp,
+      toast.info("Opting in to Mock USDC...")
+      await algorand.send.assetTransfer({
+        sender: activeAddress,
+        receiver: activeAddress,
+        assetId: BigInt(usdcAssetId),
+        amount: 0n,
       })
-
-      const signedTxns = await transactionSigner([optInTxn], [0])
-      await algorand.client.algod.sendRawTransaction(signedTxns).do()
       
-      toast.success("Successfully opted-in to USDC!")
+      toast.success("Opted in successfully!")
     } catch (e: any) {
       console.error(e)
       toast.error(`Opt-in failed: ${e.message}`)
     } finally {
-      setIsLoading(false)
+      setLoading(false)
+    }
+  }
+
+  const handleRequest = async () => {
+    if (!activeAddress) return
+    setLoading(true)
+    setSuccess(false)
+
+    try {
+      const res = await fetch("/api/faucet", {
+        method: "POST",
+        body: JSON.stringify({ address: activeAddress }),
+      })
+      
+      const data = await res.json()
+      
+      if (!res.ok) {
+        if (data.error?.includes("not opted in")) {
+          toast.error("You must opt-in to USDC first!")
+        } else {
+          throw new Error(data.error || "Faucet failed")
+        }
+        return
+      }
+
+      setSuccess(true)
+      toast.success("1,000 USDC added to your wallet!")
+    } catch (e: any) {
+      toast.error(e.message)
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans">
+    <div className="min-h-screen bg-background flex flex-col">
       <Navbar />
       
-      <main className="flex-1 container mx-auto px-4 py-16 max-w-2xl">
-        <div className="text-center mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <div className="bg-primary/10 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <Droplet className="w-8 h-8 text-primary" />
+      <main className="flex-1 container mx-auto px-4 py-20 flex flex-col items-center">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-10">
+            <div className="inline-flex p-4 rounded-3xl bg-primary/10 mb-6">
+              <Droplets className="w-12 h-12 text-primary animate-bounce-slow" />
+            </div>
+            <h1 className="text-4xl font-black tracking-tight mb-2">Testnet Faucet</h1>
+            <p className="text-muted-foreground">Get Mock USDC to test SakhiLend features on LocalNet.</p>
           </div>
-          <h1 className="text-4xl font-bold tracking-tight mb-4">Testnet Faucet</h1>
-          <p className="text-muted-foreground text-lg">
-            Get started with SakhiLend by requesting Testnet assets. 
-            All transactions happen on the Algorand Testnet.
-          </p>
-        </div>
 
-        <div className="grid gap-8">
-          {/* Step 1: ALGO Faucet */}
-          <Card className="border-border/50 bg-card/40 backdrop-blur-sm shadow-xl">
+          <Card className="border-border/50 bg-card/50 backdrop-blur-xl shadow-2xl relative overflow-hidden">
+             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-blue-500" />
+            
             <CardHeader>
-              <div className="flex items-center gap-3 mb-1">
-                <span className="bg-primary/20 text-primary text-xs font-bold px-2 py-0.5 rounded-full">Step 01</span>
-                <CardTitle className="text-xl">Request Testnet ALGO</CardTitle>
-              </div>
+              <CardTitle className="flex items-center gap-2">
+                <Coins className="w-5 h-5 text-primary" />
+                Claim 1,000 USDC
+              </CardTitle>
               <CardDescription>
-                You need a small amount of ALGO to pay for transaction fees (gas).
+                One-click test tokens for your connected wallet.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Button asChild variant="outline" className="w-full h-12 text-md font-medium group">
-                <a href="https://bank.testnet.algorand.network/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2">
-                  Visit Official Algorand Faucet
-                  <ExternalLink className="w-4 h-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                </a>
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Step 2: USDC Opt-In */}
-          <Card className="border-border/50 bg-card/40 backdrop-blur-sm shadow-xl">
-            <CardHeader>
-              <div className="flex items-center gap-3 mb-1">
-                <span className="bg-primary/20 text-primary text-xs font-bold px-2 py-0.5 rounded-full">Step 02</span>
-                <CardTitle className="text-xl">Setup USDC Wallet</CardTitle>
-              </div>
-              <CardDescription>
-                Before you can receive USDC, you must "Opt-In" to the asset.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="p-4 rounded-xl bg-accent/20 border border-border/40 flex items-start gap-3">
-                <ShieldCheck className="w-5 h-5 text-primary mt-0.5" />
-                <div className="text-sm">
-                  <p className="font-semibold text-foreground">Security Note</p>
-                  <p className="text-muted-foreground">This involves sending a 0 amount transaction to yourself. It costs ~0.001 ALGO.</p>
+            
+            <CardContent className="space-y-6">
+              {!activeAddress ? (
+                <div className="p-6 rounded-2xl bg-accent/20 border border-dashed border-border flex flex-col items-center text-center">
+                  <AlertCircle className="w-8 h-8 text-muted-foreground mb-2" />
+                  <p className="text-sm font-medium text-muted-foreground">Please connect your wallet to use the faucet</p>
                 </div>
-              </div>
-              <Button 
-                onClick={handleOptIn} 
-                disabled={isLoading || !activeAddress}
-                className="w-full h-12 text-md font-bold rounded-xl shadow-lg shadow-primary/20"
-              >
-                {isLoading ? "Processing..." : "One-Click Opt-In"}
-              </Button>
+              ) : (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl bg-primary/5 border border-primary/10">
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Target Address</p>
+                    <p className="font-mono text-xs break-all">{activeAddress}</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button 
+                      variant="outline" 
+                      onClick={handleOptIn} 
+                      disabled={loading}
+                      className="rounded-xl h-12 font-bold"
+                    >
+                      Step 1: Opt-In
+                    </Button>
+                    <Button 
+                      onClick={handleRequest} 
+                      disabled={loading}
+                      className="rounded-xl h-12 font-bold shadow-lg shadow-primary/20"
+                    >
+                      {loading ? "Processing..." : "Step 2: Claim"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {success && (
+                <div className="mt-4 p-4 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center gap-3 animate-in zoom-in-95 duration-300">
+                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  <p className="text-sm font-semibold text-green-700">Tokens dispatched! Check your wallet.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Step 3: USDC Faucet */}
-          <Card className="border-border/50 bg-card/40 backdrop-blur-sm shadow-xl border-dashed">
-            <CardHeader>
-              <div className="flex items-center gap-3 mb-1">
-                <span className="bg-primary/20 text-primary text-xs font-bold px-2 py-0.5 rounded-full">Step 03</span>
-                <CardTitle className="text-xl">Request Demo USDC</CardTitle>
-              </div>
-              <CardDescription>
-                Get 10.00 USDC to try lending, borrowing and savings.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="p-6 text-center border-t border-border/20 mt-4">
-                <Zap className="w-10 h-10 text-yellow-500/50 mx-auto mb-4" />
-                <p className="text-sm text-muted-foreground italic mb-4">
-                  "Production build in progress - For the demo, use the Pera Wallet dispenser 
-                  or the official faucet site."
-                </p>
-                <Button asChild variant="secondary" className="w-full">
-                   <a href={`https://lora.algo.xyz/testnet/asset/${usdcAssetId}`} target="_blank" rel="noopener noreferrer">
-                    View USDC on Block Explorer
-                   </a>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="mt-12 grid grid-cols-2 gap-6 text-center">
+            <div className="space-y-1">
+              <p className="text-2xl font-black text-foreground">1k</p>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">USDC Per Drop</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-2xl font-black text-foreground">∞</p>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Daily Limit</p>
+            </div>
+          </div>
         </div>
       </main>
 
-      <footer className="py-8 border-t border-border/20 text-center">
-        <p className="text-sm text-muted-foreground">
-          Built with 💚 for the women of the world.
-        </p>
-      </footer>
+      <Footer />
     </div>
   )
 }

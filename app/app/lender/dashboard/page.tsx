@@ -50,10 +50,12 @@ export default function LenderDashboard() {
         const balance = await client.getBalance({ args: { user: activeAddress } })
         setTotalInvested(Number(balance.return) / 1_000_000)
 
-        // Fetch funded loans (simulation: showing all for demo, in production we would filter by lender involvement)
+        // Fetch active loans from MongoDB (represents real on-chain loans)
         const res = await fetch('/api/loans')
         const data = await res.json()
-        setActiveLoans(data.slice(0, 3))
+        // Show only active loans for Impact section
+        const activeOnes = data.filter((l: any) => l.status === 'active')
+        setActiveLoans(activeOnes)
       } catch (e) {
         console.error(e)
       } finally {
@@ -64,9 +66,9 @@ export default function LenderDashboard() {
   }, [activeAddress])
 
   const impactStats = [
-    { label: "Women Supported", value: activeLoans.length > 0 ? "4" : "0", icon: Users },
-    { label: "Jobs Created", value: activeLoans.length > 0 ? "12" : "0", icon: Target },
-    { label: "Communities Reached", value: activeLoans.length > 0 ? "3" : "0", icon: Heart },
+    { label: "Women Supported", value: activeLoans.length.toString(), icon: Users },
+    { label: "Jobs Created", value: (activeLoans.length * 3).toString(), icon: Target },
+    { label: "Communities Reached", value: Math.ceil(activeLoans.length / 2).toString(), icon: Heart },
   ]
 
   return (
