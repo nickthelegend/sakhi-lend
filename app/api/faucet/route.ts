@@ -15,24 +15,34 @@ export async function POST(request: Request) {
     const assetId = localnetConfig.usdcAssetId
     const amount = 1000 * 1_000_000 // 1000 USDC
 
-    console.log(`[Faucet] Sending 1000 USDC to ${address}`)
+    console.log(`[Faucet DEBUG] Target Address: ${address}`)
+    console.log(`[Faucet DEBUG] Asset ID: ${assetId}`)
+    console.log(`[Faucet DEBUG] Dispenser Address: ${dispenser.addr}`)
 
     // Check if user is opted in
-    const accountInfo = await algorand.client.algod.accountAssetInformation(address, assetId).do()
-    if (!accountInfo) {
-       return NextResponse.json({ error: 'User not opted in to USDC' }, { status: 400 })
+    try {
+      await algorand.client.algod.accountAssetInformation(address, assetId).do()
+    } catch (e) {
+      console.log(`[Faucet DEBUG] User ${address} is NOT opted in to ${assetId}`)
+      return NextResponse.json({ error: `Not opted in to asset ${assetId}` }, { status: 400 })
     }
 
-    await algorand.send.assetTransfer({
+    const res = await algorand.send.assetTransfer({
       sender: dispenser.addr,
       receiver: address,
       assetId: BigInt(assetId),
       amount: BigInt(amount),
     })
 
-    return NextResponse.json({ message: 'Success! 1000 Mock USDC sent.' })
+    console.log(`[Faucet DEBUG] Success! TxId: ${res.transaction.txID()}`)
+
+    return NextResponse.json({ 
+      message: 'Success! 1000 Mock USDC sent.', 
+      txId: res.transaction.txID(),
+      assetId
+    })
   } catch (error: any) {
     console.error('[Faucet Error]', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: error.message, stack: error.stack }, { status: 500 })
   }
 }

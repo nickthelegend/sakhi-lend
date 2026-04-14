@@ -10,14 +10,33 @@ import { useAlgorandSigner } from "@/hooks/use-algorand-signer"
 import { useWallet } from "@txnlab/use-wallet-react"
 import { getAlgorandClient, getContractIds } from "@/lib/algorand/client"
 import { toast } from "sonner"
+import { useEffect } from "react"
 
 export default function FaucetPage() {
   const { activeAddress } = useAlgorandSigner()
   const { signer } = useWallet()
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [balance, setBalance] = useState<number | null>(null)
   
   const { usdcAssetId } = getContractIds()
+
+  useEffect(() => {
+    if (activeAddress) fetchBalance()
+  }, [activeAddress])
+
+  const fetchBalance = async () => {
+    try {
+      const algorand = getAlgorandClient()
+      const info = await algorand.client.algod.accountAssetInformation(activeAddress!, usdcAssetId).do()
+      // Fix: modern algosdk uses camelCase keys 'assetHolding' and 'amount'
+      const amount = info.assetHolding ? Number(info.assetHolding.amount) : 0
+      setBalance(amount / 1_000_000)
+    } catch (e) {
+      console.error("[Faucet DEBUG] Balance check failed:", e)
+      setBalance(0)
+    }
+  }
 
   const handleOptIn = async () => {
     if (!activeAddress) {
@@ -40,6 +59,7 @@ export default function FaucetPage() {
       })
       
       toast.success("Opted in successfully!")
+      fetchBalance()
     } catch (e: any) {
       console.error(e)
       toast.error(`Opt-in failed: ${e.message}`)
@@ -54,16 +74,18 @@ export default function FaucetPage() {
     setSuccess(false)
 
     try {
+      console.log("[Faucet DEBUG] Requesting tokens for:", activeAddress)
       const res = await fetch("/api/faucet", {
         method: "POST",
         body: JSON.stringify({ address: activeAddress }),
       })
       
       const data = await res.json()
+      console.log("[Faucet DEBUG] API Response:", data)
       
       if (!res.ok) {
-        if (data.error?.includes("not opted in")) {
-          toast.error("You must opt-in to USDC first!")
+        if (data.error?.includes("not opted in") || data.error?.includes("Not opted in")) {
+          toast.error(`You must opt-in to USDC (Asset ID: ${data.assetId || usdcAssetId}) first!`)
         } else {
           throw new Error(data.error || "Faucet failed")
         }
@@ -71,8 +93,11 @@ export default function FaucetPage() {
       }
 
       setSuccess(true)
-      toast.success("1,000 USDC added to your wallet!")
+      fetchBalance()
+      console.log("[Faucet DEBUG] Transaction Successful! TxID:", data.txId)
+      toast.success(`1,000 USDC added! Tx: ${data.txId.substring(0, 8)}...`)
     } catch (e: any) {
+      console.error("[Faucet DEBUG] Request Failed:", e)
       toast.error(e.message)
     } finally {
       setLoading(false)
@@ -114,9 +139,17 @@ export default function FaucetPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="p-4 rounded-xl bg-primary/5 border border-primary/10">
-                    <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Target Address</p>
-                    <p className="font-mono text-xs break-all">{activeAddress}</p>
+                  <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 flex justify-between items-center">
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Target Address</p>
+                      <p className="font-mono text-xs break-all">{activeAddress.substring(0, 10)}...{activeAddress.slice(-10)}</p>
+                    </div>
+                    {balance !== null && (
+                      <div className="text-right">
+                        <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Current Balance</p>
+                        <p className="text-lg font-black text-primary">{balance} USDC</p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
