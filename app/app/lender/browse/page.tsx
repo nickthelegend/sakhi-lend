@@ -83,7 +83,7 @@ export default function BrowsePage() {
       setTxStatus("confirming")
       console.log(`[SakhiLend DEBUG] Sending ${usdcAmount} USDC to Pool...`)
       
-      const algorand = algokit.AlgorandClient.defaultLocalNet()
+      const algorand = getAlgorandClient()
       const axfer = await algorand.createTransaction.assetTransfer({
         sender: activeAddress,
         receiver: algosdk.getApplicationAddress(BigInt(loanPoolAppId)),

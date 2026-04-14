@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { LenderSidebar } from "@/components/lender-sidebar"
 import { Filter, RefreshCcw, Wallet } from "lucide-react"
 import { useWallet } from "@txnlab/use-wallet-react"
-import { getYieldVaultClient } from "@/lib/algorand/client"
+import { getYieldVaultClient, fetchVaultBalance } from "@/lib/algorand/client"
 import { toast } from "sonner"
 
 export default function PortfolioPage() {
@@ -35,10 +35,9 @@ export default function PortfolioPage() {
       }
 
       if (activeAddress) {
-        // 2. Fetch Real Investment from YieldVault
-        const client = getYieldVaultClient(activeAddress)
-        const balance = await client.getBalance({ args: { user: activeAddress } })
-        setTotalInvestedUSD(Number(balance.return) / 1_000_000)
+        // 2. Fetch Real Investment from YieldVault using simulation (No Signatures Required)
+        const balance = await fetchVaultBalance(activeAddress)
+        setTotalInvestedUSD(balance / 1_000_000)
 
         // 3. Fetch Real Active Loans
         const loanRes = await fetch('/api/loans')

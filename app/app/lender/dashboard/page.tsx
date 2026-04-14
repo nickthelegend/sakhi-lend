@@ -18,7 +18,7 @@ import {
   Eye,
 } from "lucide-react"
 import { useAlgorandSigner } from "@/hooks/use-algorand-signer"
-import { getYieldVaultClient, getContractIds } from "@/lib/algorand/client"
+import { getYieldVaultClient, getContractIds, fetchVaultBalance } from "@/lib/algorand/client"
 import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import { WalletGuard } from "@/components/wallet-guard"
@@ -46,9 +46,9 @@ export default function LenderDashboard() {
     if (!activeAddress) return
     const sync = async () => {
       try {
-        const client = getYieldVaultClient(activeAddress)
-        const balance = await client.getBalance({ args: { user: activeAddress } })
-        setTotalInvested(Number(balance.return) / 1_000_000)
+        // Fetch Real Investment from YieldVault using simulation (No Signatures)
+        const balance = await fetchVaultBalance(activeAddress)
+        setTotalInvested(balance / 1_000_000)
 
         // Fetch active loans from MongoDB (represents real on-chain loans)
         const res = await fetch('/api/loans')

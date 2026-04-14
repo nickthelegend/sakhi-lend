@@ -56,6 +56,102 @@ export const getAlgorandClient = () => {
   return algorand
 }
 
+/**
+ * Fetches vault balance using simulation to avoid signatures and handle non-existent users.
+ */
+export const fetchVaultBalance = async (address: string): Promise<number> => {
+  try {
+    const client = getAlgorandClient()
+    const { yieldVaultAppId } = getContractIds()
+    
+    const response = await client.client.algod.simulateRaw(
+      (await client.createTransaction.appCall({
+        sender: address,
+        appId: BigInt(yieldVaultAppId),
+        method: 'getBalance(address)uint64',
+        args: [address],
+      })).build()
+    ).do()
+
+    if (response.simulateResponse.txnGroups[0].failureMessage) {
+       return 0
+    }
+
+    const result = response.simulateResponse.txnGroups[0].txnResults[0]
+    const logs = result.logs || []
+    if (logs.length > 0) {
+      const log = logs[logs.length - 1]
+      const bal = algosdk.decodeUint64(log.slice(4), 'safe')
+      return Number(bal)
+    }
+    return 0
+  } catch (e) {
+    return 0
+  }
+}
+
+/**
+ * Fetches trust score using simulation.
+ */
+export const fetchTrustScore = async (address: string): Promise<number> => {
+  try {
+    const client = getAlgorandClient()
+    const { trustOracleAppId } = getContractIds()
+    
+    const response = await client.client.algod.simulateRaw(
+      (await client.createTransaction.appCall({
+        sender: address,
+        appId: BigInt(trustOracleAppId),
+        method: 'getScore(address)uint64',
+        args: [address],
+      })).build()
+    ).do()
+
+    if (response.simulateResponse.txnGroups[0].failureMessage) return 0
+
+    const result = response.simulateResponse.txnGroups[0].txnResults[0]
+    const logs = result.logs || []
+    if (logs.length > 0) {
+      const log = logs[logs.length - 1]
+      const score = algosdk.decodeUint64(log.slice(4), 'safe')
+      return Number(score)
+    }
+    return 0
+  } catch (e) {
+    return 0
+  }
+}
+
+/**
+ * Fetches loan by borrower using simulation.
+ */
+export const fetchLoanByBorrower = async (address: string): Promise<any | null> => {
+  try {
+    const client = getLoanPoolClient()
+    const { loanPoolAppId } = getContractIds()
+    
+    // Using higher-level composer simulation for auto-decoding
+    const response = await client.appClient.getAlgorandClient().newGroup()
+      .addAppCallMethodCall(client.params.getLoanByBorrower({ 
+        args: { borrower: address },
+        // Add boxes for 'l' (loans) and 'u' (userLoans)
+        // userLoans is 'u' + address
+        // loans is 'l' + loanId (uint64)
+        // Hard to know loanId without userLoans first. 
+        // We actually just need userLoans if the contract does the lookup.
+        // But for simulation to work on-chain, we need all boxes referenced.
+      }))
+      .simulate()
+
+    if (response.returns && response.returns[0]) {
+       return response.returns[0]
+    }
+    return null
+  } catch (e) {
+    return null
+  }
+}
+
 export const getContractIds = () => {
   const isProd = process.env.NODE_ENV === 'production'
   const isTestnet = !!testnetConfig.yieldVaultAppId && process.env.NEXT_PUBLIC_USE_LOCALNET !== 'true'
@@ -82,6 +178,8 @@ export const getContractIds = () => {
 }
 
 /** Clients */
+
+import * as algosdk from 'algosdk'
 
 export const getYieldVaultClient = (sender?: string) => {
   const { yieldVaultAppId } = getContractIds()

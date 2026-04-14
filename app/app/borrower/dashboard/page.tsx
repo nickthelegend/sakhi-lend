@@ -16,7 +16,13 @@ import {
 } from "lucide-react"
 import { WalletGuard } from "@/components/wallet-guard"
 import { useAlgorandSigner } from "@/hooks/use-algorand-signer"
-import { getLoanPoolClient, getYieldVaultClient } from "@/lib/algorand/client"
+import { 
+  getLoanPoolClient, 
+  getYieldVaultClient,
+  fetchLoanByBorrower,
+  fetchVaultBalance,
+  fetchTrustScore
+} from "@/lib/algorand/client"
 import { useState, useEffect } from "react"
 
 export default function BeneficiaryDashboard() {
@@ -40,13 +46,10 @@ export default function BeneficiaryDashboard() {
     const sync = async () => {
       try {
         setIsLoading(true)
-        const poolClient = getLoanPoolClient(activeAddress)
         
-        // Use our new getLoanByBorrower method
-        try {
-          const loanRes = await poolClient.getLoanByBorrower({ borrower: activeAddress })
-          if (loanRes.return) {
-            const loan = loanRes.return
+        // 1. Fetch Loan from Pool using simulation
+        const loan = await fetchLoanByBorrower(activeAddress)
+        if (loan) {
             setLoanStats({
               amount: Number(loan.amount) / 1_000_000,
               repaid: Number(loan.amountRepaid) / 1_000_000,
@@ -57,21 +60,19 @@ export default function BeneficiaryDashboard() {
               interestRate: loan.interestRateBps,
               ttfScore: loan.ttfScore
             })
-          }
-        } catch (err) {
-          console.log("[SakhiLend DEBUG] No active loan found for user", err)
+        } else {
+          console.log("[SakhiLend DEBUG] No active loan found for user")
           setLoanStats(prev => ({ ...prev, active: false }))
         }
-
-        const vaultClient = getYieldVaultClient(activeAddress)
-        const balance = await vaultClient.getBalance({ user: activeAddress })
-        setSavingsBalance(Number(balance.return) / 1_000_000)
-
-        // Fetch Trust Score from Oracle
-        const oracleClient = (await import("@/lib/algorand/client")).getTrustOracleClient(activeAddress)
-        const score = await oracleClient.getScore({ user: activeAddress })
-        setTrustScore(Number(score.return))
-
+ 
+        // 2. Fetch Vault Balance using simulation
+        const balance = await fetchVaultBalance(activeAddress)
+        setSavingsBalance(balance / 1_000_000)
+ 
+        // 3. Fetch Trust Score using simulation
+        const score = await fetchTrustScore(activeAddress)
+        setTrustScore(score)
+ 
       } catch (e) {
         console.error("[SakhiLend DEBUG] Sync Error:", e)
       } finally {
