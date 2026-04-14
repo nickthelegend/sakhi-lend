@@ -2,10 +2,10 @@ import { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import localnetConfig from '../contracts/localnet.json'
 import { LoanPoolFactory } from '../contracts/LoanPoolClient'
 
-async function unblock() {
+async function check() {
   const algorand = AlgorandClient.defaultLocalNet()
   const appId = BigInt(localnetConfig.loanPoolAppId)
-  const user = 'LEGENDMQQJJWSQVHRFK36EP7GTM3MTI3VD3GN25YMKJ6MEBR35J4SBNVD4'
+  const address = 'LEGENDMQQJJWSQVHRFK36EP7GTM3MTI3VD3GN25YMKJ6MEBR35J4SBNVD4'
   
   const dispenser = await algorand.account.localNetDispenser()
   const client = new LoanPoolFactory({
@@ -13,13 +13,14 @@ async function unblock() {
     defaultSender: dispenser.addr
   }).getAppClientById({ appId })
 
-  console.log(`Unblocking user ${user}...`)
   try {
-    await client.send.forceClearUserLoan({ args: { user } })
-    console.log("Success! Account cleared.")
+    const loan = await client.send.getLoanByBorrower({ args: { borrower: address } })
+    console.log('--- Current Active Loan ---')
+    console.log(`Loan ID: ${loan.return?.loanId}`)
+    console.log(`Status: ${loan.return?.status}`)
   } catch (e: any) {
-    console.error("Failed to unblock:", e.message)
+    console.log('No active loan found in contract state:', e.message)
   }
 }
 
-unblock()
+check()

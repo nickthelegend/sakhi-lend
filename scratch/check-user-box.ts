@@ -1,21 +1,22 @@
-import * as algosdk from 'algosdk'
+import { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import localnetConfig from '../contracts/localnet.json'
+import * as algosdk from 'algosdk'
 
-async function checkUserLoan() {
-  const client = new algosdk.Algodv2('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'http://localhost', 4001)
-  const userAddr = 'LEGENDMQQJJWSQVHRFK36EP7GTM3MTI3VD3GN25YMKJ6MEBR35J4SBNVD4'
-  const poolAppId = localnetConfig.loanPoolAppId
-  
-  // Prefix for userLoans box is 'u'
-  const boxName = new Uint8Array([117, ...algosdk.decodeAddress(userAddr).publicKey])
+async function check() {
+  const algorand = AlgorandClient.defaultLocalNet()
+  const appId = BigInt(localnetConfig.loanPoolAppId)
+  const address = 'LEGENDMQQJJWSQVHRFK36EP7GTM3MTI3VD3GN25YMKJ6MEBR35J4SBNVD4'
   
   try {
-      const box = await client.getApplicationBoxByName(poolAppId, boxName).do()
-      const loanId = algosdk.decodeUint64(box.value, 'bigint')
-      console.log(`User ${userAddr} has active Loan ID: ${loanId}`)
-  } catch (e) {
-      console.log(`User ${userAddr} has no active loan box.`)
+    // Check Box 'u' + address
+    const addrBytes = algosdk.decodeAddress(address).publicKey
+    const key = new Uint8Array([117, ...addrBytes]) // 'u' = 117
+    const box = await algorand.client.algod.getApplicationBoxByName(appId, key).do()
+    const activeLoanId = algosdk.decodeUint64(box.value, 'bigint')
+    console.log(`Active Loan ID for user: ${activeLoanId}`)
+  } catch (e: any) {
+    console.log('Error:', e.message)
   }
 }
 
-checkUserLoan()
+check()
