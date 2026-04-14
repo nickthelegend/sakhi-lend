@@ -25,6 +25,11 @@ import * as algokit from "@algorandfoundation/algokit-utils"
 import { toast } from "sonner"
 import { TxLoadingModal } from "@/components/tx-loading-modal"
 import { triggerConfetti } from "@/lib/utils"
+import { 
+  getContractIds, 
+  getYieldVaultClient, 
+  getAlgorandClient 
+} from "@/lib/algorand/client"
 
 export default function DigiSavingsPage() {
   const { activeAddress } = useAlgorandSigner()
@@ -54,9 +59,9 @@ export default function DigiSavingsPage() {
         const status = await algorandClient.client.algod.status().do()
         setCurrentBlock(status['last-round'])
 
-        const client = getYieldVaultClient(activeAddress)
-        const balance = await client.getBalance({ args: { user: activeAddress } })
-        const val = Number(balance.return) / 1_000_000
+        const client = getYieldVaultClient(activeAddress!)
+        const balanceRes = await client.send.getBalance({ args: { user: activeAddress! } })
+        const val = Number(balanceRes.return) / 1_000_000
         setRealBalance(val)
         if (val > 0) setIsDeposited(true)
       } catch (e) {
@@ -113,10 +118,11 @@ export default function DigiSavingsPage() {
         const BOX_MBR = 128_500
         const totalMBR = BOX_MBR * 2 + 100_000 // boxes + asset opt-in MBR
         
+        console.log("[SakhiLend DEBUG] Performing First Deposit (with MBR)...")
         res = await client.send.depositFirst({
           args: {
             axfer,
-            mbrPayment: {
+            pay: {
               sender: activeAddress,
               receiver: appAddress,
               amount: algokit.microAlgos(totalMBR),
@@ -125,7 +131,8 @@ export default function DigiSavingsPage() {
           extraFee: algokit.microAlgos(1000)
         })
       } else {
-        res = await client.send.deposit({
+        console.log("[SakhiLend DEBUG] Performing Deposit More...")
+        res = await client.send.depositMore({
           args: { axfer }
         }, {
           extraFee: algokit.microAlgos(2000)
@@ -160,11 +167,12 @@ export default function DigiSavingsPage() {
       const amountMicro = BigInt(Math.floor(realBalance * 1_000_000))
       
       console.log("[SakhiLend DEBUG] Preparing withdrawal transaction...")
-      const res = await client.withdraw({
-        user: activeAddress!,
-        amount: amountMicro
+      const res = await client.send.withdraw({
+        args: {
+          amount: amountMicro
+        }
       }, {
-        extraFee: algokit.microAlgos(2000)
+        extraFee: algokit.microAlgos(3000)
       })
 
       console.log("[SakhiLend DEBUG] Withdrawal Successful. Hash:", res.transaction.txID())
@@ -242,13 +250,20 @@ export default function DigiSavingsPage() {
               </div>
 
               {!isDeposited ? (
-                <UIButton 
-                  onClick={handleDeposit} 
-                  disabled={isLoading}
-                  className="w-full h-12 text-lg font-semibold rounded-xl transition-all hover:scale-[1.02]"
-                >
-                  {isLoading ? "Processing..." : "Deposit via UPI"}
-                </UIButton>
+                <div className="space-y-2">
+                  <UIButton 
+                    onClick={handleDeposit} 
+                    disabled={isLoading}
+                    className="w-full h-12 text-lg font-semibold rounded-xl transition-all hover:scale-[1.02]"
+                  >
+                    {isLoading ? "Processing..." : "Deposit via UPI"}
+                  </UIButton>
+                  {!isDeposited && (
+                    <p className="text-[10px] text-center text-muted-foreground">
+                      * First deposit includes a one-time <strong>₹30 (~0.35 ALGO)</strong> activation fee for blockchain storage.
+                    </p>
+                  )}
+                </div>
               ) : (
                 <UIButton 
                   variant="outline" 
