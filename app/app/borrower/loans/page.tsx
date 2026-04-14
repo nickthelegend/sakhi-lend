@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { BeneficiarySidebar } from "@/components/beneficiary-sidebar"
 import { Wallet, Plus, CheckCircle, Clock, AlertCircle } from "lucide-react"
+import { useAlgorandSigner } from "@/hooks/use-algorand-signer"
 import { useWallet } from "@txnlab/use-wallet-react"
 import { getLoanPoolClient, getContractIds } from "@/lib/algorand/client"
 import * as algokit from "@algorandfoundation/algokit-utils"
@@ -18,7 +19,7 @@ import { TxLoadingModal } from "@/components/tx-loading-modal"
 import { triggerConfetti } from "@/lib/utils"
 
 export default function LoansPage() {
-  const { activeAddress } = useWallet()
+  const { activeAddress } = useAlgorandSigner()
   const [loans, setLoans] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)

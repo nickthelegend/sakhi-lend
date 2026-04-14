@@ -6,12 +6,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Droplets, Coins, CheckCircle2, AlertCircle } from "lucide-react"
+import { useAlgorandSigner } from "@/hooks/use-algorand-signer"
 import { useWallet } from "@txnlab/use-wallet-react"
 import { getAlgorandClient, getContractIds } from "@/lib/algorand/client"
 import { toast } from "sonner"
 
 export default function FaucetPage() {
-  const { activeAddress, signer } = useWallet()
+  const { activeAddress } = useAlgorandSigner()
+  const { signer } = useWallet()
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   
@@ -26,6 +28,8 @@ export default function FaucetPage() {
     setLoading(true)
     try {
       const algorand = getAlgorandClient()
+      // Register signer so algokit-utils can sign transactions
+      algorand.setSigner(activeAddress, signer)
       
       toast.info("Opting in to Mock USDC...")
       await algorand.send.assetTransfer({
