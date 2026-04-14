@@ -21,32 +21,73 @@ import { useState, useEffect } from "react"
 
 export default function BeneficiaryDashboard() {
   const { activeAddress } = useAlgorandSigner()
-  const [loanStats, setLoanStats] = useState({ amount: 0, repaid: 0, active: false })
+  const [loanStats, setLoanStats] = useState({ 
+    amount: 0, 
+    repaid: 0, 
+    active: false,
+    loanId: 0n,
+    status: 0n,
+    purpose: "",
+    interestRate: 0n,
+    ttfScore: 0n
+  })
   const [savingsBalance, setSavingsBalance] = useState(0)
+  const [trustScore, setTrustScore] = useState(0)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     if (!activeAddress) return
     const sync = async () => {
       try {
+        setIsLoading(true)
         const poolClient = getLoanPoolClient(activeAddress)
-        const loan0 = await poolClient.getLoan({ args: { borrower: activeAddress, index: BigInt(0) } })
-        if (loan0.return) {
-          setLoanStats({
-            amount: Number(loan0.return.amount) / 1_000_000,
-            repaid: Number(loan0.return.repaidAmount) / 1_000_000,
-            active: !loan0.return.isRepaid
-          })
+        
+        // Use our new getLoanByBorrower method
+        try {
+          const loanRes = await poolClient.getLoanByBorrower({ borrower: activeAddress })
+          if (loanRes.return) {
+            const loan = loanRes.return
+            setLoanStats({
+              amount: Number(loan.amount) / 1_000_000,
+              repaid: Number(loan.amountRepaid) / 1_000_000,
+              active: loan.status === 2n, // 2 = Active
+              loanId: loan.loanId,
+              status: loan.status,
+              purpose: loan.purpose,
+              interestRate: loan.interestRateBps,
+              ttfScore: loan.ttfScore
+            })
+          }
+        } catch (err) {
+          console.log("[SakhiLend DEBUG] No active loan found for user", err)
+          setLoanStats(prev => ({ ...prev, active: false }))
         }
 
         const vaultClient = getYieldVaultClient(activeAddress)
-        const balance = await vaultClient.getBalance({ args: { user: activeAddress } })
+        const balance = await vaultClient.getBalance({ user: activeAddress })
         setSavingsBalance(Number(balance.return) / 1_000_000)
+
+        // Fetch Trust Score from Oracle
+        const oracleClient = (await import("@/lib/algorand/client")).getTrustOracleClient(activeAddress)
+        const score = await oracleClient.getScore({ user: activeAddress })
+        setTrustScore(Number(score.return))
+
       } catch (e) {
-        // ...
+        console.error("[SakhiLend DEBUG] Sync Error:", e)
+      } finally {
+        setIsLoading(false)
       }
     }
     sync()
   }, [activeAddress])
+
+  const formatINR = (usdc: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(usdc * 84)
+  }
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -59,13 +100,13 @@ export default function BeneficiaryDashboard() {
 
           <div className="flex items-center justify-between">
             <div className="ml-12 lg:ml-0">
-              <h1 className="text-2xl font-bold text-foreground">Welcome, Priya!</h1>
+              <h1 className="text-2xl font-bold text-foreground">Welcome Back!</h1>
               <p className="text-sm text-muted-foreground">Here&apos;s your financial overview</p>
             </div>
             <div className="flex items-center gap-4">
               <div className="hidden text-right sm:block">
                 <p className="text-sm font-medium text-foreground">Trust Score</p>
-                <p className="text-2xl font-bold text-primary">750</p>
+                <p className="text-2xl font-bold text-primary">{trustScore || "..."}</p>
               </div>
               <div className="h-12 w-12 overflow-hidden rounded-full bg-accent">
                 <Image
@@ -90,8 +131,8 @@ export default function BeneficiaryDashboard() {
                     <Wallet className="h-6 w-6 text-primary" />
                   </div>
                    <div>
-                    <p className="text-sm text-muted-foreground">Active Loan (USDC)</p>
-                    <p className="text-2xl font-bold text-foreground">${loanStats.amount}</p>
+                    <p className="text-sm text-muted-foreground">Active Loan</p>
+                    <p className="text-2xl font-bold text-foreground">{loanStats.active ? formatINR(loanStats.amount) : "No Active Loan"}</p>
                   </div>
                 </div>
               </CardContent>
@@ -104,8 +145,8 @@ export default function BeneficiaryDashboard() {
                     <PiggyBank className="h-6 w-6 text-chart-2" />
                   </div>
                    <div>
-                    <p className="text-sm text-muted-foreground">Savings (USDC)</p>
-                    <p className="text-2xl font-bold text-foreground">${savingsBalance.toFixed(2)}</p>
+                    <p className="text-sm text-muted-foreground">Savings</p>
+                    <p className="text-2xl font-bold text-foreground">{formatINR(savingsBalance)}</p>
                   </div>
                 </div>
               </CardContent>
@@ -119,7 +160,7 @@ export default function BeneficiaryDashboard() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Yield Earned</p>
-                    <p className="text-2xl font-bold text-foreground">₹1,200</p>
+                    <p className="text-2xl font-bold text-foreground">{formatINR(savingsBalance * 0.06 / 12)}</p>
                   </div>
                 </div>
               </CardContent>
@@ -132,8 +173,8 @@ export default function BeneficiaryDashboard() {
                     <CheckCircle2 className="h-6 w-6 text-chart-1" />
                   </div>
                    <div>
-                    <p className="text-sm text-muted-foreground">Repaid (USDC)</p>
-                    <p className="text-2xl font-bold text-foreground">${loanStats.repaid}</p>
+                    <p className="text-sm text-muted-foreground">Repaid</p>
+                    <p className="text-2xl font-bold text-foreground">{loanStats.repaid > 0 ? formatINR(loanStats.repaid) : "₹0"}</p>
                   </div>
                 </div>
               </CardContent>
@@ -145,17 +186,19 @@ export default function BeneficiaryDashboard() {
             <Card>
                <CardHeader>
                 <CardTitle>Current Loan Progress</CardTitle>
-                <CardDescription>${loanStats.repaid} of ${loanStats.amount} repaid</CardDescription>
+                <CardDescription>{formatINR(loanStats.repaid)} of {formatINR(loanStats.amount)} repaid</CardDescription>
               </CardHeader>
                <CardContent>
                 <Progress value={loanStats.amount > 0 ? (loanStats.repaid / loanStats.amount) * 100 : 0} className="mb-4 h-3" />
                 <div className="flex justify-between text-sm text-muted-foreground">
                   <span>{loanStats.amount > 0 ? Math.round((loanStats.repaid / loanStats.amount) * 100) : 0}% completed</span>
-                  <span>${Math.max(0, loanStats.amount - loanStats.repaid)} remaining</span>
+                  <span>{formatINR(Math.max(0, loanStats.amount - loanStats.repaid))} remaining</span>
                 </div>
                 <div className="mt-6 flex items-center gap-2">
                   <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Next EMI: ₹2,500 on 15th Apr</span>
+                  <span className="text-sm text-muted-foreground">
+                    Next EMI: {loanStats.active ? formatINR(loanStats.amount / 6) : "None due"}
+                  </span>
                 </div>
               </CardContent>
             </Card>
