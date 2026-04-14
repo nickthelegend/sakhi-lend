@@ -9,6 +9,7 @@ import { CheckCircle, XCircle, DollarSign, User, Briefcase, FileText } from "luc
 import { useAlgorandSigner } from "@/hooks/use-algorand-signer"
 import { getLoanPoolClient, getContractIds } from "@/lib/algorand/client"
 import { toast } from "sonner"
+import * as algokit from "@algorandfoundation/algokit-utils"
 import { WalletGuard } from "@/components/wallet-guard"
 import { TxLoadingModal } from "@/components/tx-loading-modal"
 import { triggerConfetti } from "@/lib/utils"
@@ -63,10 +64,12 @@ export default function AdminLoansPage() {
       setTxStatus("confirming")
       
       console.log("[SakhiLend DEBUG] Calling approveLoan on-chain...")
-      await client.approveLoan({
-        loanId: BigInt(loan.loanId),
-        interestRateBps: 1200n, // 12% default
-        ttfScore: BigInt(loan.mannDeshiScore || 700)
+      await client.send.approveLoan({
+        args: {
+          loanId: BigInt(loan.loanId),
+          interestRateBps: 1200n, // 12% default
+          ttfScore: BigInt(loan.mannDeshiScore || 700)
+        }
       })
 
       console.log("[SakhiLend DEBUG] Syncing approval status to MongoDB...")
@@ -98,9 +101,10 @@ export default function AdminLoansPage() {
       setTxStatus("confirming")
       
       console.log("[SakhiLend DEBUG] Calling disburseLoan on-chain...")
-      await client.disburseLoan({
-        loanId: BigInt(loan.loanId)
-      }, {
+      await client.send.disburseLoan({
+        args: {
+          loanId: BigInt(loan.loanId)
+        },
         extraFee: algokit.microAlgos(1000)
       })
 
@@ -159,7 +163,7 @@ export default function AdminLoansPage() {
                             {loan.status}
                           </Badge>
                         </div>
-                        <p className="text-lg font-black text-foreground">₹{loan.loanAmount?.toLocaleString()}</p>
+                        <p className="text-lg font-black text-foreground">₹{(loan.loanAmount * 84)?.toLocaleString()}</p>
                       </div>
                     </CardHeader>
                     <CardContent className="p-6">

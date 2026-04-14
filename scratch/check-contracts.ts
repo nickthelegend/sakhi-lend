@@ -5,9 +5,9 @@ async function checkPool() {
   const client = new algosdk.Algodv2('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'http://localhost', 4001)
   const poolAddress = algosdk.getApplicationAddress(BigInt(localnetConfig.loanPoolAppId))
   const yieldVaultAddress = algosdk.getApplicationAddress(BigInt(localnetConfig.yieldVaultAppId))
-  const usdcId = 1023
+  const usdcId = localnetConfig.usdcAssetId
   
-  console.log('--- Contract Holdlings ---')
+  console.log(`--- Contract Holdlings (USDC: ${usdcId}) ---`)
   
   try {
       const pInfo = await client.accountAssetInformation(poolAddress, usdcId).do()

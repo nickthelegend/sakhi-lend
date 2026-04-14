@@ -2,7 +2,7 @@ import * as algokit from '@algorandfoundation/algokit-utils'
 import { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import * as algosdk from 'algosdk'
 import localnetConfig from '../contracts/localnet.json'
-import { LoanPoolFactory } from '../../sakhi-lend-contracts/smart_contracts/artifacts/loan_pool/LoanPoolClient'
+import { LoanPoolFactory } from '../contracts/LoanPoolClient'
 
 const borrowers = [
   { name: "Priya Sharma", business: "Tailoring Shop", story: "Expanding my boutique to train 5 local women in garment making.", amt: 150, cat: "Fashion" },
