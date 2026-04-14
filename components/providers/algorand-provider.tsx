@@ -10,6 +10,8 @@ export const WalletProviderWrapper = ({ children }: { children: React.ReactNode 
   const walletManager = useMemo(() => new WalletManager({
     wallets: [
       WalletId.PERA,
+      WalletId.DEFLY,
+      WalletId.LUTE,
       {
         id: WalletId.CUSTOM,
         options: {
