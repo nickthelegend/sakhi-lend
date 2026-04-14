@@ -101,17 +101,11 @@ export default function DigiSavingsPage() {
     setTxStatus("signing")
     try {
       setTxStatus("confirming")
+      const algorand = getAlgorandClient()
       const client = getYieldVaultClient(activeAddress)
       const amountMicro = BigInt(Math.floor(parseFloat(usdcAmount) * 1_000_000))
-      const appAddress = algosdk.getApplicationAddress(BigInt(yieldVaultAppId))
+      const appAddress = client.appAddress
       
-      const axfer = {
-        assetId: BigInt(usdcAssetId),
-        amount: amountMicro,
-        sender: activeAddress,
-        receiver: appAddress,
-      }
-
       let res;
       if (realBalance === 0 && !isDeposited) {
         // First time: MBR payment required
@@ -119,22 +113,38 @@ export default function DigiSavingsPage() {
         const totalMBR = BOX_MBR * 2 + 100_000 // boxes + asset opt-in MBR
         
         console.log("[SakhiLend DEBUG] Performing First Deposit (with MBR)...")
+        
+        const axfer = await algorand.createTransaction.assetTransfer({
+          sender: activeAddress,
+          receiver: appAddress,
+          assetId: BigInt(usdcAssetId),
+          amount: amountMicro,
+        })
+
+        const mbrPayment = await algorand.createTransaction.payment({
+          sender: activeAddress,
+          receiver: appAddress,
+          amount: algokit.microAlgos(totalMBR),
+        })
+
         res = await client.send.depositFirst({
           args: {
             axfer,
-            pay: {
-              sender: activeAddress,
-              receiver: appAddress,
-              amount: algokit.microAlgos(totalMBR),
-            }
+            mbrPayment,
           },
           extraFee: algokit.microAlgos(1000)
         })
       } else {
         console.log("[SakhiLend DEBUG] Performing Deposit More...")
+        const axfer = await algorand.createTransaction.assetTransfer({
+          sender: activeAddress,
+          receiver: appAddress,
+          assetId: BigInt(usdcAssetId),
+          amount: amountMicro,
+        })
+
         res = await client.send.depositMore({
-          args: { axfer }
-        }, {
+          args: { axfer },
           extraFee: algokit.microAlgos(2000)
         })
       }
@@ -170,8 +180,7 @@ export default function DigiSavingsPage() {
       const res = await client.send.withdraw({
         args: {
           amount: amountMicro
-        }
-      }, {
+        },
         extraFee: algokit.microAlgos(3000)
       })
 
