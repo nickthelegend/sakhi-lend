@@ -64,9 +64,13 @@ export default function BeneficiaryLoginPage() {
             <Card className="border-none shadow-xl">
               <CardHeader className="text-center">
                 <div className="mx-auto mb-4">
-                  <span className="text-2xl font-semibold tracking-tight text-foreground">
-                    Sakhi<span className="text-primary">lend</span>
-                  </span>
+                  <Image 
+                    src="/logo-sakhilend.png" 
+                    alt="SakhiLend Logo" 
+                    width={150} 
+                    height={40} 
+                    className="mx-auto h-10 w-auto"
+                  />
                 </div>
                 <CardTitle className="text-2xl">Beneficiary Login</CardTitle>
                 <CardDescription>

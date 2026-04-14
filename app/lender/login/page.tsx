@@ -50,9 +50,13 @@ export default function LenderLoginPage() {
                   <Heart className="h-8 w-8 text-primary" />
                 </div>
                 <div className="mb-2">
-                  <span className="text-2xl font-semibold tracking-tight text-foreground">
-                    Sakhi<span className="text-primary">lend</span>
-                  </span>
+                  <Image 
+                    src="/logo-sakhilend.png" 
+                    alt="SakhiLend Logo" 
+                    width={150} 
+                    height={40} 
+                    className="mx-auto h-10 w-auto"
+                  />
                 </div>
                 <CardTitle className="text-2xl">Become a Lender</CardTitle>
                 <CardDescription>Support women entrepreneurs and earn meaningful returns</CardDescription>

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Home, Menu, X } from "lucide-react"
 import { useState } from "react"
+import Image from "next/image"
 import { WalletButton } from "@txnlab/use-wallet-ui-react"
 
 
@@ -29,10 +30,15 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <Link href="/" className="flex items-center gap-1">
-          <span className="text-2xl font-semibold tracking-tight text-foreground">
-            Sakhi<span className="text-primary">lend</span>
-          </span>
+        <Link href="/" className="flex items-center gap-2">
+          <Image 
+            src="/logo-sakhilend.png" 
+            alt="SakhiLend Logo" 
+            width={150} 
+            height={40} 
+            className="h-10 w-auto"
+            priority
+          />
         </Link>
         
         {/* Desktop Navigation */}
