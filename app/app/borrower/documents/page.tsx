@@ -50,46 +50,47 @@ export default function DocumentsPage() {
 
         <div className="p-6">
           <div className="mb-8 grid gap-6 lg:grid-cols-2">
-            <Card>
+            <Card className="rounded-3xl border-border/50 bg-card shadow-sm">
               <CardHeader>
-                <CardTitle>KYC Documents</CardTitle>
-                <CardDescription>Your identity and address verification documents</CardDescription>
+                <CardTitle className="text-xl font-black">KYC Documents</CardTitle>
+                <CardDescription className="text-sm font-medium">Your identity and address verification documents</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {documents.map((doc, index) => (
-                    <div key={index} className="flex items-center justify-between rounded-lg border border-border p-4">
+                    <div key={index} className="flex items-center justify-between rounded-2xl border border-border/50 p-4 transition-all hover:bg-accent/5">
                       <div className="flex items-center gap-4">
-                        <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-                          doc.status === "verified" ? "bg-chart-2/20" :
-                          doc.status === "pending" ? "bg-chart-4/20" : "bg-destructive/10"
+                        <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                          doc.status === "verified" ? "bg-green-500/10" :
+                          doc.status === "pending" ? "bg-orange-500/10" : "bg-red-500/10"
                         }`}>
                           {doc.status === "verified" ? (
-                            <CheckCircle className="h-5 w-5 text-chart-2" />
+                            <CheckCircle className="h-5 w-5 text-green-500" />
                           ) : doc.status === "pending" ? (
-                            <Clock className="h-5 w-5 text-chart-4" />
+                            <Clock className="h-5 w-5 text-orange-500" />
                           ) : (
-                            <AlertCircle className="h-5 w-5 text-destructive" />
+                            <AlertCircle className="h-5 w-5 text-red-500" />
                           )}
                         </div>
                         <div>
-                          <p className="font-medium text-foreground">{doc.name}</p>
+                          <p className="font-bold text-foreground">{doc.name}</p>
                           <p className="text-sm text-muted-foreground">{doc.type}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <Badge variant={
-                          doc.status === "verified" ? "default" :
-                          doc.status === "pending" ? "secondary" : "destructive"
-                        }>
+                        <Badge className={`rounded-full px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                          doc.status === "verified" ? "bg-green-500/10 text-green-500 border-green-500/20" :
+                          doc.status === "pending" ? "bg-orange-500/10 text-orange-500 border-orange-500/20" : 
+                          "bg-red-500/10 text-red-500 border-red-500/20"
+                        }`} variant="outline">
                           {doc.status}
                         </Badge>
                         {doc.status !== "required" ? (
-                          <Button size="sm" variant="ghost">
+                          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full">
                             <Eye className="h-4 w-4" />
                           </Button>
                         ) : (
-                          <Button size="sm" variant="outline">
+                          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full bg-accent/50">
                             <Upload className="h-4 w-4" />
                           </Button>
                         )}
@@ -100,25 +101,25 @@ export default function DocumentsPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="rounded-3xl border-border/50 bg-card shadow-sm">
               <CardHeader>
-                <CardTitle>Statements</CardTitle>
-                <CardDescription>Download your monthly statements</CardDescription>
+                <CardTitle className="text-xl font-black">Statements</CardTitle>
+                <CardDescription className="text-sm font-medium">Download your monthly statements</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   {statements.map((statement, index) => (
-                    <div key={index} className="flex items-center justify-between rounded-lg border border-border p-4">
+                    <div key={index} className="flex items-center justify-between rounded-2xl border border-border/50 p-4 transition-all hover:bg-accent/5">
                       <div className="flex items-center gap-4">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10">
                           <FileText className="h-5 w-5 text-primary" />
                         </div>
                         <div>
-                          <p className="font-medium text-foreground">{statement.name}</p>
+                          <p className="font-bold text-foreground">{statement.name}</p>
                           <p className="text-sm text-muted-foreground">{statement.date}</p>
                         </div>
                       </div>
-                      <Button size="sm" variant="outline" className="gap-2">
+                      <Button size="sm" variant="outline" className="gap-2 rounded-xl border-border/50 font-bold h-9">
                         <Download className="h-4 w-4" />
                         PDF
                       </Button>

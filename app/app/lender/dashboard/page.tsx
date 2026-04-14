@@ -209,8 +209,6 @@ export default function LenderDashboard() {
             <CardContent>
               <div className="space-y-4">
                 {activeLoans.map((lending) => {
-                  const progress = Math.min(100, Math.round((lending.currentFunding || 0) / (lending.loanAmount || 1) * 100))
-                  
                   return (
                     <div
                       key={lending._id}
@@ -231,13 +229,6 @@ export default function LenderDashboard() {
                         </div>
                       </div>
 
-                      <div className="flex-1 sm:px-6">
-                        <div className="mb-2 flex items-center justify-between text-xs font-bold uppercase tracking-wider">
-                          <span className="text-muted-foreground">Funding Goal</span>
-                          <span className="text-foreground">{progress}%</span>
-                        </div>
-                        <Progress value={progress} className="h-2 rounded-full overflow-hidden" />
-                      </div>
 
                       <div className="flex items-center gap-10">
                         <div className="text-right">
