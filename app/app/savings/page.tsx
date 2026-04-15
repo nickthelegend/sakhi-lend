@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/card" // Assuming Card also has styles, but let's use UI Button
 import { Button as UIButton } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -49,45 +49,44 @@ export default function DigiSavingsPage() {
   const usdcAmount = (inrAmount / INR_USDC_RATE).toFixed(2)
   const simulatedAPY = 0.06 // 6%
 
+  const syncBalance = useCallback(async () => {
+    if (!activeAddress) return
+    try {
+      const algorand = getAlgorandClient()
+      const status = await algorand.client.algod.status().do()
+      setCurrentBlock(status['last-round'])
+
+      const client = getYieldVaultClient(activeAddress!)
+      const userBytes = algosdk.decodeAddress(activeAddress!).publicKey
+      
+      // Use simulation for reading balance - prevents wallet popup every 10s
+      // We must provide box references for the contract to read the user's data
+      const simRes = await algorand.newGroup()
+        .addAppCallMethodCall(await client.params.getBalance({ 
+          args: { user: activeAddress! },
+          boxReferences: [
+            { appId: BigInt(yieldVaultAppId), name: new Uint8Array([100, ...userBytes]) }, // Box 'd'
+            { appId: BigInt(yieldVaultAppId), name: new Uint8Array([98, ...userBytes]) }   // Box 'b'
+          ]
+        }))
+        .simulate()
+
+      const val = Number(simRes.returns![0]) / 1_000_000
+      console.log(`[SakhiLend DEBUG] Synced Balance: ${val} (Block: ${status['last-round']})`)
+      
+      setRealBalance(val)
+      if (val > 0) setIsDeposited(true)
+    } catch (e) {
+      console.error("[SakhiLend DEBUG] Failed to sync balance:", e)
+    }
+  }, [activeAddress, yieldVaultAppId])
+
   // Sync real balance from contract
   useEffect(() => {
-    if (!activeAddress) return
-
-    const syncBalance = async () => {
-      try {
-        const algorand = getAlgorandClient()
-        const status = await algorand.client.algod.status().do()
-        setCurrentBlock(status['last-round'])
-
-        const client = getYieldVaultClient(activeAddress!)
-        const userBytes = algosdk.decodeAddress(activeAddress!).publicKey
-        
-        // Use simulation for reading balance - prevents wallet popup every 10s
-        // We must provide box references for the contract to read the user's data
-        const simRes = await algorand.newGroup()
-          .addAppCallMethodCall(client.params.getBalance({ 
-            args: { user: activeAddress! },
-            boxReferences: [
-              { appId: BigInt(yieldVaultAppId), name: new Uint8Array([100, ...userBytes]) }, // Box 'd'
-              { appId: BigInt(yieldVaultAppId), name: new Uint8Array([98, ...userBytes]) }   // Box 'b'
-            ]
-          }))
-          .simulate()
-
-        const val = Number(simRes.returns![0]) / 1_000_000
-        console.log(`[SakhiLend DEBUG] Synced Balance: ${val} (Block: ${status['last-round']})`)
-        
-        setRealBalance(val)
-        if (val > 0) setIsDeposited(true)
-      } catch (e) {
-        console.error("[SakhiLend DEBUG] Failed to sync balance:", e)
-      }
-    }
-
     syncBalance()
     const interval = setInterval(syncBalance, 10000)
     return () => clearInterval(interval)
-  }, [activeAddress, yieldVaultAppId])
+  }, [syncBalance])
 
   // Simulation effect for UI smoothness
   useEffect(() => {

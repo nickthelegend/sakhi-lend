@@ -136,7 +136,7 @@ export const fetchLoanByBorrower = async (address: string): Promise<any | null> 
     
     // Using higher-level composer simulation for auto-decoding
     const response = await client.appClient.getAlgorandClient().newGroup()
-      .addAppCallMethodCall(client.params.getLoanByBorrower({ 
+      .addAppCallMethodCall(await client.params.getLoanByBorrower({ 
         args: { borrower: address },
         // Add boxes for 'l' (loans) and 'u' (userLoans)
         // userLoans is 'u' + address
