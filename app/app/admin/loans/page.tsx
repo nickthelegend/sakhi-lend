@@ -134,8 +134,16 @@ export default function AdminLoansPage() {
       <main className="flex-1">
         <WalletGuard role="admin">
           <header className="border-b border-border bg-card px-6 py-4">
-            <h1 className="text-2xl font-bold text-foreground">Admin: Loan Approvals</h1>
-            <p className="text-sm text-muted-foreground">Review and manage microloan lifecycles</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">Admin: Loan Approvals</h1>
+                <p className="text-sm text-muted-foreground">Review and manage microloan lifecycles</p>
+              </div>
+              <Badge variant="outline" className="gap-1.5 px-3 py-1 text-[10px] uppercase tracking-widest text-muted-foreground border-border/50">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                Testnet Active
+              </Badge>
+            </div>
           </header>
 
           <div className="p-6">

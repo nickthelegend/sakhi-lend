@@ -33,6 +33,11 @@ const LoanMetadataSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  network: {
+    type: String,
+    enum: ['localnet', 'testnet'],
+    default: 'localnet',
+  },
 });
 
 export default mongoose.models.LoanMetadata || mongoose.model('LoanMetadata', LoanMetadataSchema);

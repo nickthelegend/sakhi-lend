@@ -136,8 +136,16 @@ export default function BrowsePage() {
         <header className="border-b border-border bg-card px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="ml-12 lg:ml-0">
-              <h1 className="text-2xl font-bold font-display tracking-tight text-foreground uppercase">Real Impact Market</h1>
-              <p className="text-sm text-muted-foreground font-medium uppercase tracking-widest text-[10px]">Filter & support women entrepreneurs with real-world yield</p>
+            <div className="flex items-center justify-between flex-1">
+              <div className="ml-12 lg:ml-0">
+                <h1 className="text-2xl font-bold font-display tracking-tight text-foreground uppercase">Real Impact Market</h1>
+                <p className="text-sm text-muted-foreground font-medium uppercase tracking-widest text-[10px]">Filter & support women entrepreneurs with real-world yield</p>
+              </div>
+              <Badge variant="outline" className="gap-1.5 px-3 py-1 text-[10px] uppercase tracking-widest text-muted-foreground border-border/50">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                Testnet Active
+              </Badge>
+            </div>
             </div>
           </div>
         </header>

@@ -10,6 +10,7 @@ export const getAlgodConfig = () => {
   const isTestnet = !!testnetConfig.yieldVaultAppId && process.env.NEXT_PUBLIC_USE_LOCALNET !== 'true'
   
   if (process.env.NODE_ENV === 'production' || isTestnet) {
+    console.log(`[SakhiLend DEBUG] Using Testnet Algod Server`)
     return {
       server: process.env.NEXT_PUBLIC_ALGOD_SERVER || 'https://testnet-api.algonode.cloud',
       port: process.env.NEXT_PUBLIC_ALGOD_PORT || '443',
@@ -26,7 +27,10 @@ export const getAlgodConfig = () => {
 }
 
 export const getIndexerConfig = () => {
-  if (process.env.NODE_ENV === 'production') {
+  const isTestnet = !!testnetConfig.yieldVaultAppId && process.env.NEXT_PUBLIC_USE_LOCALNET !== 'true'
+
+  if (process.env.NODE_ENV === 'production' || isTestnet) {
+    console.log(`[SakhiLend DEBUG] Using Testnet Indexer Server`)
     return {
       server: process.env.NEXT_PUBLIC_INDEXER_SERVER || 'https://testnet-idx.algonode.cloud',
       port: process.env.NEXT_PUBLIC_INDEXER_PORT || '443',

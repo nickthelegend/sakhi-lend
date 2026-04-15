@@ -11,6 +11,7 @@ export async function POST(request: Request) {
     }
 
     const isTestnet = process.env.NODE_ENV === 'production' || (!!testnetConfig.yieldVaultAppId && process.env.NEXT_PUBLIC_USE_LOCALNET !== 'true')
+    console.log(`[SakhiLend DEBUG] Faucet Network Resolution - isTestnet: ${isTestnet}`)
     
     let algorand: AlgorandClient
     let dispenser: any

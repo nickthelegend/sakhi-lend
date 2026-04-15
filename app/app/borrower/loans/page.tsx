@@ -71,7 +71,7 @@ export default function LoansPage() {
       // 1. On-Chain Request
       setTxStatus("confirming")
       console.log("[SakhiLend DEBUG] Requesting loan on-chain...")
-      const algorand = algokit.AlgorandClient.defaultLocalNet()
+      const algorand = getAlgorandClient()
       const mbrTxn = await algorand.createTransaction.payment({
         sender: activeAddress,
         receiver: algosdk.getApplicationAddress(BigInt(loanPoolAppId)),
@@ -128,8 +128,16 @@ export default function LoansPage() {
         <header className="border-b border-border bg-card px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="ml-12 lg:ml-0">
-              <h1 className="text-2xl font-bold font-display tracking-tight text-foreground">My Loans</h1>
-              <p className="text-sm text-muted-foreground font-medium">Manage your microloan applications</p>
+            <div className="flex items-center justify-between flex-1">
+              <div className="ml-12 lg:ml-0">
+                <h1 className="text-2xl font-bold font-display tracking-tight text-foreground">My Loans</h1>
+                <p className="text-sm text-muted-foreground font-medium">Manage your microloan applications</p>
+              </div>
+              <Badge variant="outline" className="gap-1.5 px-3 py-1 text-[10px] uppercase tracking-widest text-muted-foreground border-border/50">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                Testnet Active
+              </Badge>
+            </div>
             </div>
 
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
